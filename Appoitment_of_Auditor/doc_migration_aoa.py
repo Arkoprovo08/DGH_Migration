@@ -65,7 +65,7 @@ def process_documents(cursor, query, label, label_id):
 
             if logical_doc_id:
                 print(f"✅ Uploaded: {file_name} ➜ docId: {logical_doc_id}")
-                update_sql = "UPDATE FRAMEWORK01.CMS_FILES SET LOGICAL_DOC_ID = :1, LABEL_ID = :2 WHERE FILE_ID = :3"
+                update_sql = "UPDATE dgh_staging.CMS_FILES SET LOGICAL_DOC_ID = :1, LABEL_ID = :2 WHERE FILE_ID = :3"
                 cursor.execute(update_sql, (logical_doc_id,label_id, file_id))
             else:
                 print(f"⚠️ No docId found for {file_name} in responseObject")
