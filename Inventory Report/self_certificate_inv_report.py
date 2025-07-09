@@ -53,7 +53,7 @@ def upload_documents():
                 'regime': block_category,
                 'block': block_name,
                 'module': 'Inventory Tracking',
-                'process': 'Inventory Reports',
+                'process': 'Inventory Report',
                 'financialYear': get_financial_year(created_on),
                 'referenceNumber': ref_id,
                 'label': 'Self Certificate'
