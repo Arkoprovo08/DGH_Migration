@@ -34,7 +34,7 @@ try:
                 document_ref_number,
                 document_type_id,
                 document_name,
-                appointment_auditor_id
+                insurance_and_indemnity_id
             ) VALUES (%s, %s, %s, %s)
         """, (logical_doc_id, label_id, file_name, appointment_auditor_id))
 
