@@ -15,7 +15,7 @@ try:
 
     # Execute the query directly from PostgreSQL
     pg_cursor.execute("""
-        SELECT cmf.refid, cf.file_name, cf.logical_doc_id, cf.label_id,
+        SELECT cmf.refid, cf.file_label, cf.logical_doc_id, cf.label_id,
                taad.appointment_auditor_id
         FROM dgh_staging.cms_files cf
         JOIN dgh_staging.cms_file_ref cfr ON cf.FILE_ID = cfr.FILE_ID
