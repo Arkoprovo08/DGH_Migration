@@ -1,0 +1,28 @@
+-- Insert in User_Role_mapping
+ 
+INSERT INTO user_profile.t_user_role_map
+( user_id, role_id, is_active)
+ 
+select user_id,5,1 from m_user_master where user_mode = 'e'
+ 
+--- Insert in operator user mapping
+ 
+INSERT INTO user_profile.t_operator_user_mapping
+( operator_id, user_id,is_active)
+select mcm.company_id,user_id,1 from m_user_master mum
+join  dgh_staging.ext_user_master eum  on eum.userid = mum.migrated_user_id
+join global_master.m_company_master mcm on mcm.company_id = eum.operator_id
+ 
+-- insert in module access
+ 
+INSERT INTO user_profile.user_module_access
+( user_role_id, block_id, menu_id,created_date,created_by)
+ 
+ 
+select turm.user_role_id,mbm.block_id,142 , pu.approved_time ,1 from
+t_user_role_map turm
+join m_user_master mum on turm.user_id = mum.user_id
+join  dgh_staging.ext_user_master eum  on eum.userid = mum.migrated_user_id and eum.appid  = 301
+join dgh_staging.prod_userfields pu on eum.userid = pu.userid and pu.app_id = 301
+join exploration_mining_permits.m_block_master mbm on mbm.migrated_block_id = pu.field_id and mbm.regime = 'PSC' and pu.block_type = 1
+where pu.block_type = 1
