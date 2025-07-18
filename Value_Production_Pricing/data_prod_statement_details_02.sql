@@ -1,20 +1,3 @@
-
-select distinct fpvsd."LABEL_TEXT",fpvsd."LABEL_TYPE",fpvsd."LABEL_NO"
-from dgh_staging.form_prod_val_sta_data fpvsd 
-where fpvsd."ACTIVE" = '17'
-
-select "REFID" 
-from dgh_staging.form_prod_val_sta_data fpvsd 
-where fpvsd."ACTIVE" = '17' and fpvsd."LABEL_TEXT" = 'VERIFY_EMAIL' and fpvsd."SEQ" >1
-
-select MAX("SEQ")
-from dgh_staging.form_prod_val_sta_data fpvsd 
-where fpvsd."ACTIVE" = '17' and "PROD_VAL_STA_ID" = 'VPP-20210319030335'
-
-alter table financial_mgmt.t_production_statement_details
-add column is_migrated int4 default 0
-
-
 INSERT INTO financial_mgmt.t_production_statement_details (
 	production_statement_details_id,
     quarterly_report_value_of_production_and_pricing_statement_deta,
