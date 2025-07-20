@@ -1,0 +1,16 @@
+ALTER TABLE financial_mgmt.m_production_activity_master RENAME COLUMN updtaed_date TO updated_date;
+ALTER TABLE financial_mgmt.t_budget_be_re_details ADD work_programme_field_da_details_id int4 NULL;
+ALTER TABLE financial_mgmt.t_budget_be_re_details ADD CONSTRAINT field_da_details_fk FOREIGN KEY (work_programme_field_da_details_id) REFERENCES upstream_data_management.t_work_programme_field_da_details(work_programme_field_da_details_id);
+ALTER TABLE financial_mgmt.t_budget_be_re_details RENAME CONSTRAINT gen_info_fk TO bud_gen_info_fk;
+ALTER TABLE financial_mgmt.t_budget_general_information ADD work_programme_general_information_id int4 NULL;
+ALTER TABLE financial_mgmt.t_budget_general_information ADD CONSTRAINT work_programme_general_information_fk FOREIGN KEY (work_programme_general_information_id) REFERENCES upstream_data_management.t_work_programme_general_information(work_programme_general_information_id);
+ALTER TABLE financial_mgmt.t_production_statement_field_details ADD data_source varchar(50) DEFAULT 'PDMS'::character varying NULL;
+ALTER TABLE financial_mgmt.t_recall_details ADD CONSTRAINT process_master_fk FOREIGN KEY (process_id) REFERENCES global_master.m_process_master(process_id);
+ALTER TABLE financial_mgmt.t_submission_of_insurance_and_indemnity ADD block_id int4 NULL;
+ALTER TABLE operator_contracts_agreements.t_assignment_participation_operator_status_details ADD is_migrated int4 NULL;
+ALTER TABLE operator_contracts_agreements.t_extension_exploration_phase_details ADD migrated_process_id int4 NULL;
+ALTER TABLE operator_contracts_agreements.t_extension_exploration_phase_details ADD block_id int4 NULL;
+ALTER TABLE operator_contracts_agreements.t_format_c_commercial_discovery_header ADD checkbox_json varchar(100) NULL;
+ALTER TABLE upstream_data_management.t_quarterly_report_programme_quantity ADD is_submitted bool NULL;
+ALTER TABLE upstream_data_management.t_quarterly_report_programme_quantity ADD is_existing bool NULL;
+ALTER TABLE upstream_data_management.t_work_programme_activity_header ADD tab_name varchar(255) NULL;
