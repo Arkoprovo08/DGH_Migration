@@ -15,28 +15,31 @@ INSERT INTO upstream_data_management.t_caliberation_flow_meters_witness_custody_
     ref_to_psc_article_no,
     remarks,
     testing_from,
-    testing_to
+    testing_to,
+    is_migrated 
 )
 SELECT
-    fcf.refid,
-    fcf.blockcategory,
-    fcf.blockname,
-    fcf.contractname,
+    fcf."REFID",
+    fcf."BLOCKCATEGORY",
+    fcf."BLOCKNAME",
+    fcf."CONTRACTNAME",
     mum.user_id,
-    fcf.created_on,
+    fcf."CREATED_ON",
     'DRAFT' AS current_status,
-    fcf.dos_contract,
-    fcf.designation,
+    fcf."DOS_CONTRACT",
+    fcf."DESIGNATION",
     1 AS is_active,
-    '{}',
-    fcf.name_auth_sig_contra,
-    fcf.location,
-    fcf.ref_topsc_articalno,
+    '{}' AS dummy_json,
+    fcf."NAME_AUTH_SIG_CONTRA",
+    fcf."LOCATION",
+    fcf."REF_TOPSC_ARTICALNO",
     fc.comment_data,
-    fcf.sch_date_test_from,
-    fcf.sch_date_test_to
+    fcf."SCH_DATE_TEST_FROM",
+    fcf."SCH_DATE_TEST_TO",
+    1
 FROM dgh_staging.form_calibratio_flow fcf
 LEFT JOIN user_profile.m_user_master mum 
-    ON mum.migrated_user_id = fcf.created_by AND mum.is_migrated = 1
+    ON mum.migrated_user_id = fcf."CREATED_BY" AND mum.is_migrated = 1
 LEFT JOIN dgh_staging.frm_comments fc 
-    ON fc.comment_id = fcf.commentid;
+    ON fc.comment_id = fcf."COMMENTID"
+where fcf."STATUS" = '1';
