@@ -83,7 +83,7 @@ SELECT
     MAX(CASE WHEN label_text = 'Name of Authorised Signatory for Contractor [duly authorised by OCR]' THEN label_value END) AS name_of_authorised_signatory,
     MAX(CASE WHEN label_text = 'DESIGNATION' THEN label_value END) AS designation,
     MAX(CASE WHEN label_no = '102' THEN label_value END) AS remarks,
-    '{}'::JSONB AS form_checkbox,
+    '{"acceptTerm1": true, "acceptTerm2": true, "acceptTerm3": true, "acceptTerm4": true, "acceptTerm5": true, "acceptTerm6": true}'::JSONB AS form_checkbox,
     '{"acceptTerm1": true, "acceptTerm2": true, "acceptTerm3": true, "acceptTerm4": true, "acceptTerm5": true, "acceptTerm6": true}'::JSONB AS declaration_checkbox,
     1 AS is_active,
     mum.user_id AS created_by,
