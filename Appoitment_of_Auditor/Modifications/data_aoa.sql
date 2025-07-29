@@ -21,6 +21,7 @@ INSERT INTO operator_contracts_agreements.t_appointment_auditor_details (
     is_migrated,
     process_id,
     remarks,
+    is_auditor_cag_empanelled,
     declaration_checkbox
 )
 SELECT
@@ -49,7 +50,8 @@ SELECT
     1,
     30,
     cm.comment_data,
-    '{}'
+    0,
+    '{"acceptTerm1": true, "acceptTerm2": true, "acceptTerm3": true}'
 FROM dgh_staging.FORM_APPOINTMENT_AUDITOR_OPR src
 LEFT JOIN user_profile.m_user_master mum
     ON mum.migrated_user_id = src."CREATED_BY" AND mum.is_migrated = 1
