@@ -28,8 +28,8 @@ SELECT
   mum.user_id AS created_by,
   MAX(fmp.created_on) AS creation_date,
   CASE 
-    WHEN standby.label_value = '1' THEN 'YES'
-    ELSE 'NO'
+    WHEN standby.label_value = '1' THEN 'Yes'
+    ELSE 'No'
   END AS stand_by_meter_availability,
   1 AS is_migrated
 FROM dgh_staging.form_measurement_petroleum cust
