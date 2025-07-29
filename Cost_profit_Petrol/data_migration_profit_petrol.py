@@ -12,44 +12,49 @@ def migrate_profit_petrol():
 
     # ✅ Postgres 2.0 connection
     tgt_conn = psycopg2.connect(
-        host="3.110.185.154",
+        host="13.127.174.112",
         port=5432,
         database="ims",
-        user="postgres",
-        password="P0$tgres@dgh"
+        user="imsadmin",
+        password="Dghims!2025"
     )
     tgt_cursor = tgt_conn.cursor()
 
     try:
-        # ✅ Fetch all rows
+        # ✅ Fetch data from Oracle with comment text
         src_cursor.execute("""
             SELECT 
-                REFID, BLOCKCATEGORY, BLOCKNAME, CONTRACTNAME, DATE_EFFECTIVE, PROFIT_PETROLEUM, PETROLEUM_DATE,
-                PETROLEUM_AMOUNT, PETROLEUM_UTR, PROFIT_PETROLEUM_DEPOSITED, FROM_DATE_INTEREST, AMOUNT_INTEREST,
-                UTR, DOES_MC, COMPLIANCE_PSC, NAME_AUTH_SIG_CONTRA, DESIGNATION, CREATED_BY, CREATED_ON, IS_ACTIVE,
-                TO_DATE_INTEREST, DATE_INTEREST, DOS_CONTRACT, BID_ROUND
-            FROM FRAMEWORK01.FORM_PROFIT_PETROLEUM
-            WHERE STATUS = '1'
+                f.REFID, f.BLOCKCATEGORY, f.BLOCKNAME, f.CONTRACTNAME, f.DATE_EFFECTIVE,
+                f.PROFIT_PETROLEUM, f.PETROLEUM_DATE, f.PETROLEUM_AMOUNT, f.PETROLEUM_UTR,
+                f.PROFIT_PETROLEUM_DEPOSITED, f.FROM_DATE_INTEREST, f.AMOUNT_INTEREST, f.UTR,
+                f.DOES_MC, f.COMPLIANCE_PSC, f.NAME_AUTH_SIG_CONTRA, f.DESIGNATION,
+                f.CREATED_BY, f.CREATED_ON, f.IS_ACTIVE, f.TO_DATE_INTEREST, f.DATE_INTEREST,
+                f.DOS_CONTRACT, f.BID_ROUND, c.COMMENT_DATA
+            FROM FRAMEWORK01.FORM_PROFIT_PETROLEUM f
+            LEFT JOIN FRAMEWORK01.FRM_COMMENTS c ON f.COMMENTID = c.COMMENT_ID
+            WHERE f.STATUS = '1'
         """)
         rows = src_cursor.fetchall()
         print(f"✅ Found {len(rows)} records to migrate.")
 
         for row in rows:
             (
-                refid, block_category, block_name, contractor_name, date_effective, profit_petroleum, petroleum_date,
-                petroleum_amount, petroleum_utr, profit_petroleum_deposited, from_date_interest, amount_interest,
-                utr, does_mc, compliance_psc, name_auth_sig_contra, designation, source_created_by, created_on,
-                is_active, to_date_interest, date_interest, dos_contract, bid_round
+                refid, block_category, block_name, contractor_name, date_effective,
+                profit_petroleum, petroleum_date, petroleum_amount, petroleum_utr,
+                profit_petroleum_deposited, from_date_interest, amount_interest, utr,
+                does_mc, compliance_psc, name_auth_sig_contra, designation,
+                source_created_by, created_on, is_active, to_date_interest, date_interest,
+                dos_contract, bid_round, comment_text
             ) = row
 
-            # ✅ Set to NULL if 0 or None
-            psc_date_amt_provisional_profit = None if not profit_petroleum or profit_petroleum == '0'else profit_petroleum
+            # ✅ Set NULL if not provided
+            psc_date_amt_provisional_profit = None if not profit_petroleum or profit_petroleum == '0' else profit_petroleum
 
-            # ✅ Map DOES_MC, COMPLIANCE_PSC
+            # ✅ Map YES/NO to 1/0
             v_does_mc = 1 if does_mc and does_mc.strip().upper() == 'YES' else 0
             v_compliance_psc = 1 if compliance_psc and compliance_psc.strip().upper() == 'YES' else 0
 
-            # ✅ Map CREATED_BY to 2.0 user ID
+            # ✅ Map CREATED_BY
             tgt_cursor.execute("""
                 SELECT user_id 
                 FROM user_profile.m_user_master 
@@ -58,32 +63,42 @@ def migrate_profit_petrol():
             mapped_user = tgt_cursor.fetchone()
             final_created_by = mapped_user[0] if mapped_user else 5
 
-            # ✅ Insert to Postgres
+            # ✅ Insert into PostgreSQL
             tgt_cursor.execute("""
-                INSERT INTO financial_mgmt.t_cost_and_profit_petroleum_calculations
-                (
+                INSERT INTO financial_mgmt.t_cost_and_profit_petroleum_calculations (
                     quarterly_report_cost_and_profit_petroleum_calculations_applica,
                     block_category, block_name, contractor_name, effective_date,
                     psc_date_amt_provisional_profit, psc_1_date, psc_1_amount_usd, psc_1_utr_details,
                     psc_2_from_date, psc_2_amount_usd, psc_2_utr_details,
-                    psc_mc_approved_audited_acc, psc_compliance_of_psc, name_authorised_signatory, designation,
-                    created_by, creation_date, is_active, psc_2_to_date, psc_2_date,
-                    dos_contract, awarded_under, is_migrated, is_declared, process_id, current_status
+                    psc_mc_approved_audited_acc, psc_compliance_of_psc,
+                    name_authorised_signatory, designation,
+                    created_by, creation_date, is_active,
+                    psc_2_to_date, psc_2_date,
+                    dos_contract, awarded_under,
+                    is_migrated, is_declared, process_id, current_status,
+                    remarks
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s,
+                    1, 1, 34, 'DRAFT',
+                    %s
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1, 1, 34, 'DRAFT')
             """, (
                 refid, block_category, block_name, contractor_name, date_effective,
                 psc_date_amt_provisional_profit, petroleum_date, petroleum_amount, petroleum_utr,
                 from_date_interest, amount_interest, utr,
-                v_does_mc, v_compliance_psc, name_auth_sig_contra, designation,
-                final_created_by, created_on, is_active, to_date_interest, date_interest,
-                dos_contract, bid_round
+                v_does_mc, v_compliance_psc,
+                name_auth_sig_contra, designation,
+                final_created_by, created_on, is_active,
+                to_date_interest, date_interest,
+                dos_contract, bid_round,
+                comment_text
             ))
 
-            print(f"➡️ Migrated REFID={refid} with created_by={final_created_by} and provisional_profit={psc_date_amt_provisional_profit}")
+            print(f"➡️ Migrated REFID={refid} with created_by={final_created_by}")
 
         tgt_conn.commit()
-        print("🎉 Migration completed successfully.")
+        print("🎉 Profit Petroleum migration completed successfully.")
 
     except Exception as e:
         print(f"❌ Migration failed: {e}")
