@@ -18,7 +18,9 @@ POSTGRES_CONN = psycopg2.connect(
 postgres_cursor = POSTGRES_CONN.cursor()
 
 API_URL = "http://k8s-ingressn-ingressn-1628ed6eec-bd2bc8d22bd4aed8.elb.ap-south-1.amazonaws.com/docs/documentManagement/uploadMultipleDocument"
-FILES_DIR = r"C:\Users\Administrator.DGH\Desktop\dgh\Files\CMS\Uploads"
+# FILES_DIR = r"C:\Users\Administrator.DGH\Desktop\dgh\Files\CMS\Uploads"
+FILES_DIR = r"C:\Users\dghvmuser05\Desktop\DGH FILES\LogicalDoc\PDF"
+
 
 def get_financial_year(created_on):
     if isinstance(created_on, str):
