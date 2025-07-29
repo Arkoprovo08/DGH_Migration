@@ -154,4 +154,6 @@ LEFT JOIN comments_data cd ON cd.ref_id = fai.ref_id
 LEFT JOIN exploration_mining_permits.m_block_master mbm
 ON mbm.migrated_block_id = fai.blockname::integer
 AND mbm.regime = fai.blockcategory
+join dgh_staging.frm_workitem_master_new fwmn 
+on fwmn.ref_id = fai.ref_id
 WHERE fai.rn = 1 AND mum.is_migrated = 1;
