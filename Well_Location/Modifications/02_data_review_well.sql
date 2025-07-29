@@ -21,7 +21,7 @@ SELECT
     CASE 
         WHEN data."WELL_TYPE" = '1' THEN 'Exploratory'
         WHEN data."WELL_TYPE" = '2' THEN 'Appraisal'
-        WHEN data."WELL_TYPE" = '3' THEN 'Developtment'
+        WHEN data."WELL_TYPE" = '3' THEN 'Development'
         ELSE NULL
     END AS well_type,
     'Review' AS task_type,
