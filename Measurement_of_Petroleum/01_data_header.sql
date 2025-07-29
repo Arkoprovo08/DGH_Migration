@@ -26,7 +26,8 @@ INSERT INTO upstream_data_management.t_measurement_of_petroleum_header (
     created_by,
     creation_date,
     process_id,
-    current_status
+    current_status,
+    is_migrated
 )
 SELECT
     fmp.refid AS measurement_of_petroleum_application_number,
@@ -47,10 +48,10 @@ SELECT
         WHEN label_text = 'Hydrocarbon type in the Block' THEN
             CASE 
                 WHEN label_value = '0' THEN 'NA'
-                WHEN label_value = '1' THEN 'OIL'
-                WHEN label_value = '2' THEN 'GAS'
-                WHEN label_value = '3' THEN 'CONDENSATE'
-                WHEN label_value = '4' THEN 'OIL-CONDENSATE'
+                WHEN label_value = '1' THEN 'Oil'
+                WHEN label_value = '2' THEN 'Gas'
+                WHEN label_value = '3' THEN 'Condensate'
+                WHEN label_value = '4' THEN 'Oil-Gas'
                 ELSE NULL
             END
         ELSE NULL
@@ -83,13 +84,15 @@ SELECT
     MAX(CASE WHEN label_text = 'DESIGNATION' THEN label_value END) AS designation,
     MAX(CASE WHEN label_no = '102' THEN label_value END) AS remarks,
     '{}'::JSONB AS form_checkbox,
-    '{}'::JSONB AS declaration_checkbox,
+    '{"acceptTerm1": true, "acceptTerm2": true, "acceptTerm3": true, "acceptTerm4": true, "acceptTerm5": true, "acceptTerm6": true}'::JSONB AS declaration_checkbox,
     1 AS is_active,
     mum.user_id AS created_by,
     MAX(fmp.created_on) AS creation_date,
     25 AS process_id,
-    'DRAFT' AS current_status
+    'DRAFT' AS current_status,
+    1
 FROM dgh_staging.form_measurement_petroleum fmp
 LEFT JOIN user_profile.m_user_master mum ON mum.migrated_user_id = fmp.created_by
+join dgh_staging.frm_workitem_master_new w on w.ref_id = fmp.refid
 WHERE fmp.status = '1' AND mum.is_migrated = 1
 GROUP BY fmp.refid, mum.user_id;
