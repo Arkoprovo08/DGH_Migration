@@ -41,5 +41,6 @@ LEFT JOIN LATERAL (
     FROM dgh_staging.frm_comments c
     WHERE c.comment_id = src.COMMENTID
     LIMIT 1
-) cm ON TRUE
+) cm ON true
+join dgh_staging.frm_workitem_master_new w on w.ref_id = src.refid
 WHERE src.status = '1';
