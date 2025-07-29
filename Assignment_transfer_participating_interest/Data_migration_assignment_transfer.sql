@@ -1,19 +1,61 @@
 WITH pivoted_data AS (
   SELECT
     refid,
-    MAX(CASE WHEN data_id = 'txt_Ex_Phase_I' THEN data_value END) AS txt_ex_phase_i,
-    MAX(CASE WHEN data_id = 'txt_Ex_Phase_II' THEN data_value END) AS txt_ex_phase_ii,
-    MAX(CASE WHEN data_id = 'txt_Ex_Phase_III' THEN data_value END) AS txt_ex_phase_iii,
+    MAX(CASE 
+	    WHEN data_id = 'txt_Ex_Phase_I' THEN 
+	        CASE 
+	            WHEN data_value = 'NA' THEN 'NA'
+	            WHEN data_value = 'Na' THEN 'NA'
+	            ELSE NULL
+	        END
+		END) AS txt_ex_phase_i,
+	MAX(CASE 
+	    WHEN data_id = 'txt_Ex_Phase_II' THEN 
+	        CASE 
+	            WHEN data_value = 'NA' THEN 'NA'
+	            WHEN data_value = 'Na' THEN 'NA'
+	            ELSE NULL
+	        END
+		END) AS txt_ex_phase_ii,
+	MAX(CASE 
+	    WHEN data_id = 'txt_Ex_Phase_III' THEN 
+	        CASE 
+	            WHEN data_value = 'NA' THEN 'NA'
+	            WHEN data_value = 'Na' THEN 'NA'
+	            ELSE NULL
+	        END
+		END) AS txt_ex_phase_iii,
     MAX(CASE WHEN data_id = 'txt_Brief_corporate' THEN data_value END) AS txt_brief_corporate,
     MAX(CASE WHEN data_id = 'txt_Bank_Guarantee_date' THEN data_value::date END) AS txt_bank_guarantee_date,
     MAX(CASE WHEN data_id = 'txt_Bank_Guarantee_amt' THEN data_value::numeric END) AS txt_bank_guarantee_amt,
     MAX(CASE WHEN data_id = 'txt_Bank_Guarantee_from' THEN data_value::date END) AS txt_bank_guarantee_from,
     MAX(CASE WHEN data_id = 'txt_Bank_Guarantee_to' THEN data_value::date END) AS txt_bank_guarantee_to,
-    MAX(CASE WHEN data_id = 'ddl_Deed_partnership' THEN data_value END) AS ddl_deed_partnership,
-    MAX(CASE WHEN data_id = 'ddl_Amendments' THEN data_value END) AS ddl_amendments,
-    MAX(CASE WHEN data_id = 'ddl_pending_dues' THEN data_value END) AS ddl_pending_dues,
     MAX(CASE 
-        WHEN data_id = 'ddl_compliances_psc' THEN 
+	    WHEN data_id = 'ddl_Deed_partnership' THEN 
+	        CASE 
+	            WHEN data_value = 'YES' THEN 'Yes'
+	            WHEN data_value = 'NO' THEN 'No'
+	            ELSE NULL
+	        END
+		END) AS ddl_Deed_partnership,    
+    MAX(CASE 
+	    WHEN data_id = 'ddl_Amendments' THEN 
+	        CASE 
+	            WHEN data_value = 'YES' THEN 'Yes'
+	            WHEN data_value = 'NO' THEN 'No'
+	            ELSE NULL
+	        END
+		END) AS ddl_Amendments,    
+    MAX(CASE 
+	    WHEN data_id = 'ddl_pending_dues' THEN 
+	        CASE 
+	            WHEN data_value = 'YES' THEN 'Yes'
+	            WHEN data_value = 'NO' THEN 'No'
+	            ELSE NULL
+	        END
+		END) AS ddl_pending_dues,    
+    MAX(CASE 
+        	WHEN data_id = 'ddl_compliances_psc' THEN 
             CASE WHEN data_value = 'YES' THEN '1' ELSE '0' END 
     END) AS ddl_compliances_psc
   FROM dgh_staging.form_assignment_interest_data
@@ -75,7 +117,7 @@ SELECT
     fai.ref_id,
     11,
     fai.blockcategory,
-    fai.blockname,
+    mbm.block_name,
     fai.consortium,
     fai.assignor,
     fai.assignee,
@@ -109,4 +151,7 @@ FROM latest_assignment_interest fai
 LEFT JOIN pivoted_data pd ON pd.refid = fai.ref_id
 LEFT JOIN user_profile.m_user_master mum ON mum.migrated_user_id = fai.created_by
 LEFT JOIN comments_data cd ON cd.ref_id = fai.ref_id
+LEFT JOIN exploration_mining_permits.m_block_master mbm
+ON mbm.migrated_block_id = fai.blockname::integer
+AND mbm.regime = fai.blockcategory
 WHERE fai.rn = 1 AND mum.is_migrated = 1;
