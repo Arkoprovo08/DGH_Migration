@@ -10,24 +10,40 @@ sys.stderr = sys.stdout
 
 # === PostgreSQL Connection ===
 POSTGRES_CONN = psycopg2.connect(
-    host="3.110.185.154",
+    host="13.127.174.112",
     port=5432,
     database="ims",
-    user="postgres",
-    password="P0$tgres@dgh"
+    user="imsadmin",
+    password="Dghims!2025"
 )
 postgres_cursor = POSTGRES_CONN.cursor()
 
 # === API Config ===
 API_URL = "http://k8s-ingressn-ingressn-1628ed6eec-bd2bc8d22bd4aed8.elb.ap-south-1.amazonaws.com/docs/documentManagement/uploadMultipleDocument"
-FILES_DIR = r"C:\Users\Administrator.DGH\Desktop\dgh\Files\CMS\Uploads"
+FILES_DIR = r"\\192.168.0.126\it\CMS\Uploads1"
 
-# === Utility Function ===
+# === Utility Functions ===
 def get_financial_year(created_on):
     if isinstance(created_on, str):
         created_on = datetime.strptime(created_on, "%Y-%m-%d %H:%M:%S")
+    elif isinstance(created_on, datetime):
+        pass
+    else:
+        raise ValueError("Invalid datetime input for financial year")
     year = created_on.year
     return f"{year}-{year + 1}" if created_on.month > 3 else f"{year - 1}-{year}"
+
+def log_to_db(file_name, status, label_text, refid):
+    try:
+        insert_query = """
+            INSERT INTO global_master.t_document_migration_status_details 
+            (document_name, document_migration_status, doc_type_name, refid)
+            VALUES (%s, %s, %s, %s)
+        """
+        postgres_cursor.execute(insert_query, (file_name, status, label_text, refid))
+        POSTGRES_CONN.commit()
+    except Exception as e:
+        print(f"❌ Failed to log status for {file_name}: {e}")
 
 # === Document Processing ===
 def process_label(label_value, label_text, label_id):
@@ -39,7 +55,7 @@ def process_label(label_value, label_text, label_id):
             cf.FILE_NAME,
             fcdfc.block_category,
             fcdfc.block_name,
-            fcdfc.created_by,
+            fcdfc.creation_date,
             cf.FILE_ID
         FROM dgh_staging.form_inventory_report faao
         JOIN dgh_staging.CMS_MASTER_FILEREF cmf ON faao."LABEL_VALUE" = cmf.FILEREF
@@ -51,25 +67,33 @@ def process_label(label_value, label_text, label_id):
     postgres_cursor.execute(query)
     rows = postgres_cursor.fetchall()
 
-    for refid, file_name, regime, block, created_by, file_id in rows:
+    for refid, file_name, regime, block, created_on, file_id in rows:
         file_path = os.path.join(FILES_DIR, file_name)
 
         print(f"\n📄 File: {file_name}")
         print(f"RefID: {refid} | Block: {block} | Regime: {regime}")
 
         if not os.path.exists(file_path):
-            print(f"❌ File not found: {file_path}")
+            msg = f"❌ File not found: {file_path}"
+            print(msg)
+            log_to_db(file_name, "File Not Found", label_text, refid)
             continue
 
         try:
             with open(file_path, 'rb') as f:
                 files = {'files': f}
+                try:
+                    fy = get_financial_year(created_on)
+                except Exception as fy_err:
+                    print(f"⚠️ Could not determine financial year: {fy_err}")
+                    fy = "NA"
+
                 data = {
                     'regime': regime,
                     'block': block,
                     'module': 'Operator Contracts and Agreements',
-                    'process': 'Inventory Report Upload',
-                    'financialYear': get_financial_year(created_by),
+                    'process': 'Inventory Report',
+                    'financialYear': fy,
                     'referenceNumber': refid,
                     'label': label_text
                 }
@@ -96,21 +120,33 @@ def process_label(label_value, label_text, label_id):
                     """
                     postgres_cursor.execute(update_query, (logical_doc_id, label_id, file_id))
                     POSTGRES_CONN.commit()
+                    log_to_db(file_name, "Success", label_text, refid)
                 else:
-                    print(f"⚠️ docId not found in API response.")
+                    print("⚠️ docId not found in API response.")
+                    log_to_db(file_name, "docId Not Found", label_text, refid)
 
         except Exception as err:
             print(f"❌ Upload failed for {file_name}: {err}")
+            log_to_db(file_name, f"Upload Failed: {err}", label_text, refid)
 
-# === Updated Labels ===
+# === Updated Labels SIT===
+# labels = [
+#     ("Upload inventory list for other assets", "Upload inventory list for other assets", 257),
+#     ("Upload Report", "Upload Report", 258),
+#     ("Additional File, If Any", "Additional File, If Any", 259),
+#     ("Upload inventory list for fixed assets", "Upload inventory list for fixed assets", 260)
+# ]
+
+
+# === Labels (DEV) ===
 labels = [
-    ("Upload inventory list for other assets", "Upload inventory list for other assets", 257),
-    ("Upload Report", "Upload Report", 258),
-    ("Additional File, If Any", "Additional File, If Any", 259),
-    ("Upload inventory list for fixed assets", "Upload inventory list for fixed assets", 260)
+    ("Upload inventory list for other assets", "Upload inventory list for other assets", 570),
+    ("Upload Report", "Upload Report", 568),
+    ("Additional Files if any", "Additional File, If Any", 569),
+    ("Upload inventory list for fixed assets", "Upload inventory list for fixed assets", 570)
 ]
 
-# === Process All Labels ===
+# === Run All Labels ===
 for label_value, label_text, label_id in labels:
     process_label(label_value, label_text, label_id)
 
