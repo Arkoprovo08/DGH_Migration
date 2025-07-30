@@ -10,24 +10,35 @@ sys.stderr = sys.stdout
 
 # === PostgreSQL Connection ===
 POSTGRES_CONN = psycopg2.connect(
-    host="3.110.185.154",
+    host="13.127.174.112",
     port=5432,
     database="ims",
-    user="postgres",
-    password="P0$tgres@dgh"
+    user="imsadmin",
+    password="Dghims!2025"
 )
 postgres_cursor = POSTGRES_CONN.cursor()
 
 # === API Config ===
 API_URL = "http://k8s-ingressn-ingressn-1628ed6eec-bd2bc8d22bd4aed8.elb.ap-south-1.amazonaws.com/docs/documentManagement/uploadMultipleDocument"
-FILES_DIR = r"C:\\Users\\Administrator.DGH\\Desktop\\dgh\\Files\\CMS\\Uploads"
+FILES_DIR = r"\\192.168.0.126\it\CMS\Uploads1"
 
-# === Utility Function ===
+# === Utility Functions ===
 def get_financial_year(created_on):
     if isinstance(created_on, str):
         created_on = datetime.strptime(created_on, "%Y-%m-%d %H:%M:%S")
     year = created_on.year
     return f"{year}-{year + 1}" if created_on.month > 3 else f"{year - 1}-{year}"
+
+def log_status(document_name, status, doc_type_name, refid):
+    try:
+        postgres_cursor.execute("""
+            INSERT INTO global_master.t_document_migration_status_details
+            (document_name, document_migration_status, doc_type_name, refid)
+            VALUES (%s, %s, %s, %s)
+        """, (document_name, status, doc_type_name, refid))
+        POSTGRES_CONN.commit()
+    except Exception as log_err:
+        print(f"⚠️ Failed to log for {document_name}: {log_err}")
 
 # === Document Processing ===
 def process_label(data_id, label_text, label_id):
@@ -53,11 +64,18 @@ def process_label(data_id, label_text, label_id):
     rows = postgres_cursor.fetchall()
 
     for refid, file_name, regime, block, created_by, file_id in rows:
-        file_path = os.path.join(FILES_DIR, file_name)
         print(f"\n📄 {file_name} | RefID: {refid} | Block: {block}")
+
+        if not file_name:
+            print("⚠️ File name is NULL.")
+            log_status(None, 'No self certificate', label_text, refid)
+            continue
+
+        file_path = os.path.join(FILES_DIR, file_name)
 
         if not os.path.exists(file_path):
             print(f"❌ File not found: {file_path}")
+            log_status(file_name, 'File Not Found', label_text, refid)
             continue
 
         try:
@@ -79,7 +97,6 @@ def process_label(data_id, label_text, label_id):
 
                 response_json = response.json()
                 response_objects = response_json.get("responseObject", [])
-
                 logical_doc_id = next((obj.get("docId") for obj in response_objects if obj.get("fileName") == file_name), None)
 
                 if logical_doc_id:
@@ -91,11 +108,16 @@ def process_label(data_id, label_text, label_id):
                     '''
                     postgres_cursor.execute(update_query, (logical_doc_id, label_id, file_id))
                     POSTGRES_CONN.commit()
+
+                    log_status(file_name, 'Uploaded', label_text, refid)
+
                 else:
                     print("⚠️ docId not found in response.")
+                    log_status(file_name, 'docId Missing in Response', label_text, refid)
 
         except Exception as e:
             print(f"❌ Error uploading {file_name}: {e}")
+            log_status(file_name, 'Upload Failed', label_text, refid)
 
 # === Labels List ===
 data_labels = [
@@ -103,15 +125,17 @@ data_labels = [
     ("Btn_Calculation_ld", "Calculation for LD", 79),
     ("Btn_Bank_Guarantee", "Please upload Bank Guarantee", 492),
     ("Btn_Purpose", "Purpose of Bank Guarantee", 493),
-    ("Btn_compute", "Please provide details of cost of remaining work programme and/or additional work programme to compute Bank Guarantee thereof", 494),
+    ("Btn_compute", "Cost of remaining/additional work programme", 494),
     ("Btn_Calculation", "Calculation of Bank Guarantee", 495),
     ("Btn_Extension_Exploration", "Submit Representation", 72),
-    ("Btn_Legal_Opinion", "UPLOAD LEGAL OPINION ", 497)
+    ("Btn_Legal_Opinion", "UPLOAD LEGAL OPINION", 497)
 ]
 
+# === Run All Labels ===
 for data_id, label_text, label_id in data_labels:
     process_label(data_id, label_text, label_id)
 
+# === Cleanup ===
 postgres_cursor.close()
 POSTGRES_CONN.close()
 print("\n✅ All labels processed. PostgreSQL connection closed.")

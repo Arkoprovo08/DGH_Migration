@@ -11,17 +11,29 @@ sys.stderr = sys.stdout
 
 # === PostgreSQL DB Config ===
 POSTGRES_CONN = psycopg2.connect(
-    host="3.110.185.154",
+    host="13.127.174.112",
     port=5432,
     database="ims",
-    user="postgres",
-    password="P0$tgres@dgh"
+    user="imsadmin",
+    password="Dghims!2025"
 )
 postgres_cursor = POSTGRES_CONN.cursor()
 
 # === API Config ===
 API_URL = "http://k8s-ingressn-ingressn-1628ed6eec-bd2bc8d22bd4aed8.elb.ap-south-1.amazonaws.com/docs/documentManagement/uploadMultipleDocument"
-FILES_DIR = r"C:\Users\Administrator.DGH\Desktop\dgh\Files\CMS\Uploads"
+FILES_DIR = r"\\192.168.0.126\it\CMS\Uploads1"
+
+# === Logging function ===
+def log_status(document_name, status, doc_type_name, refid):
+    try:
+        postgres_cursor.execute("""
+            INSERT INTO global_master.t_document_migration_status_details
+            (document_name, document_migration_status, doc_type_name, refid)
+            VALUES (%s, %s, %s, %s)
+        """, (document_name, status, doc_type_name, refid))
+        POSTGRES_CONN.commit()
+    except Exception as log_err:
+        print(f"⚠️ Logging failed for {document_name}: {log_err}")
 
 # === Utility ===
 def get_financial_year(created_on):
@@ -30,6 +42,7 @@ def get_financial_year(created_on):
     year = created_on.year
     return f"{year}-{year + 1}" if created_on.month > 3 else f"{year - 1}-{year}"
 
+# === Processing Function ===
 def process_documents(query, label, label_id):
     postgres_cursor.execute(query)
     rows = postgres_cursor.fetchall()
@@ -40,8 +53,14 @@ def process_documents(query, label, label_id):
         print(f"\nProcessing {label}:")
         print(regime, block, refid, sep=' | ')
 
+        if not file_name:
+            print("⚠️ dgh_letter (file name) is NULL.")
+            log_status(None, 'No self certificate', label, refid)
+            continue
+
         if not os.path.exists(file_path):
             print(f"❌ File not found: {file_path}")
+            log_status(file_name, 'File Not Found', label, refid)
             continue
 
         files = {'files': open(file_path, 'rb')}
@@ -79,11 +98,16 @@ def process_documents(query, label, label_id):
                 """
                 postgres_cursor.execute(pg_update, (logical_doc_id, label_id, file_id))
                 POSTGRES_CONN.commit()
+
+                log_status(file_name, 'Uploaded', label, refid)
+
             else:
                 print(f"⚠️ No docId found for {file_name} in responseObject")
+                log_status(file_name, 'docId Missing in Response', label, refid)
 
         except Exception as upload_err:
             print(f"❌ Upload failed for {file_name}: {upload_err}")
+            log_status(file_name, 'Upload Failed', label, refid)
 
 # === Queries and Labels ===
 queries = [
@@ -141,6 +165,6 @@ postgres_cursor.close()
 POSTGRES_CONN.close()
 print("\n✅ All files processed. PostgreSQL connection closed.")
 
-# Restore output stream
+# === Restore stdout ===
 sys.stdout.close()
 sys.stdout = sys.__stdout__
