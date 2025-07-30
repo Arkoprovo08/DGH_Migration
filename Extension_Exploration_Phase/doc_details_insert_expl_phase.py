@@ -16,27 +16,27 @@ try:
     # Execute the query directly from PostgreSQL
     pg_cursor.execute("""
         SELECT cmf.refid, cf.file_label, cf.logical_doc_id, cf.label_id,
-               taad.appointment_auditor_id
+               taad.extension_exploration_phase_details_id
         FROM dgh_staging.cms_files cf
         JOIN dgh_staging.cms_file_ref cfr ON cf.FILE_ID = cfr.FILE_ID
         JOIN dgh_staging.cms_master_fileref cmf ON cfr.ref_id = cmf.fileref
-        JOIN operator_contracts_agreements.t_appointment_auditor_details taad 
-            ON taad.appointment_auditor_application_number = cmf.refid
+        JOIN operator_contracts_agreements.t_extension_exploration_phase_details taad 
+            ON taad.extension_exploration_phase_details_applications_number = cmf.refid
         WHERE taad.is_migrated = 1 AND cf.is_active = 1
     """)
 
     rows = pg_cursor.fetchall()
     print(f"🔍 Found {len(rows)} documents to insert")
 
-    for refid, file_name, logical_doc_id, label_id, appointment_auditor_id in rows:
+    for refid, file_name, logical_doc_id, label_id, extension_exploration_phase_details_id in rows:
         pg_cursor.execute("""
-            INSERT INTO operator_contracts_agreements.t_appointment_auditor_document_details (
+            INSERT INTO operator_contracts_agreements.t_extension_exploration_phase_document_details (
                 document_ref_number,
                 document_type_id,
                 document_name,
-                appointment_auditor_id
+                extension_exploration_phase_details_id
             ) VALUES (%s, %s, %s, %s)
-        """, (logical_doc_id, label_id, file_name, appointment_auditor_id))
+        """, (logical_doc_id, label_id, file_name, extension_exploration_phase_details_id))
 
         print(f"📥 Inserted: REFID={refid}, LogicalDocID={logical_doc_id}, LabelID={label_id}, FileName={file_name}")
 
