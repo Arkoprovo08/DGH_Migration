@@ -112,7 +112,7 @@ def process_documents(query, label, label_id):
 # === Queries and Labels ===
 queries = [
     (
-        "OCR Available", 43,
+        "OCR Available", 71,
         """
         SELECT faao."REF_ID", cf.FILE_NAME, faao."BLOCKCATEGORY", faao."BLOCKNAME", faao."CREATED_ON", cf.FILE_ID
         FROM dgh_staging.form_extension_explo_phase faao
@@ -145,7 +145,7 @@ queries = [
         """
     ),
     (
-        "Upload Additional Documents", 106,
+        "Upload Additional Documents", 80,
         """
         SELECT faao."REF_ID", cf.FILE_NAME, faao."BLOCKCATEGORY", faao."BLOCKNAME", faao."CREATED_ON", cf.FILE_ID
         FROM dgh_staging.form_extension_explo_phase faao
