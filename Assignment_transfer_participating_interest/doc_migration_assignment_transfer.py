@@ -10,11 +10,11 @@ sys.stderr = sys.stdout
 
 # === PostgreSQL Connection ===
 POSTGRES_CONN = psycopg2.connect(
-    host="3.110.185.154",
+    host="13.127.174.112",
     port=5432,
     database="ims",
-    user="postgres",
-    password="P0$tgres@dgh"
+    user="imsadmin",
+    password="Dghims!2025"
 )
 postgres_cursor = POSTGRES_CONN.cursor()
 
@@ -28,6 +28,17 @@ def get_financial_year(created_on):
         created_on = datetime.strptime(created_on, "%Y-%m-%d %H:%M:%S")
     year = created_on.year
     return f"{year}-{year + 1}" if created_on.month > 3 else f"{year - 1}-{year}"
+
+def log_to_db(file_name, status, label_text, refid):
+    try:
+        postgres_cursor.execute('''
+            INSERT INTO global_master.t_document_migration_status_details
+            (document_name, document_migration_status, doc_type_name, refid)
+            VALUES (%s, %s, %s, %s)
+        ''', (file_name, status, label_text, refid))
+        POSTGRES_CONN.commit()
+    except Exception as log_error:
+        print(f"❌ Logging failed for {file_name}: {log_error}")
 
 # === Document Processing ===
 def process_label(data_id, label_text, label_id):
@@ -47,11 +58,11 @@ def process_label(data_id, label_text, label_id):
         JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
         JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
         JOIN dgh_staging.form_assignment_interest fcdfc ON fcdfc.ref_id  = faao.REFID
-        WHERE cmf.ACTIVE = '1' AND faao.DATA_ID = '{data_id}' AND faao.STATUS = '1' and fcdfc.status = '1'
+        WHERE cmf.ACTIVE = '1' AND faao.DATA_ID = %s AND faao.STATUS = '1' AND fcdfc.status = '1'
         ORDER BY faao.refid, faao.data_id;
     '''
 
-    postgres_cursor.execute(query)
+    postgres_cursor.execute(query, (data_id,))
     rows = postgres_cursor.fetchall()
 
     for refid, _, file_name, regime, block, created_by, file_id in rows:
@@ -60,6 +71,7 @@ def process_label(data_id, label_text, label_id):
 
         if not os.path.exists(file_path):
             print(f"❌ File not found: {file_path}")
+            log_to_db(file_name, "File not found", label_text, refid)
             continue
 
         try:
@@ -81,54 +93,89 @@ def process_label(data_id, label_text, label_id):
 
                 response_json = response.json()
                 response_objects = response_json.get("responseObject", [])
-
                 logical_doc_id = next((obj.get("docId") for obj in response_objects if obj.get("fileName") == file_name), None)
 
                 if logical_doc_id:
                     print(f"✅ Uploaded. docId: {logical_doc_id}")
-                    update_query = '''
+                    postgres_cursor.execute('''
                         UPDATE dgh_staging.CMS_FILES
                         SET LOGICAL_DOC_ID = %s, LABEL_ID = %s
                         WHERE FILE_ID = %s
-                    '''
-                    postgres_cursor.execute(update_query, (logical_doc_id, label_id, file_id))
+                    ''', (logical_doc_id, label_id, file_id))
                     POSTGRES_CONN.commit()
+
+                    log_to_db(file_name, "Uploaded", label_text, refid)
                 else:
                     print("⚠️ docId not found in response.")
+                    log_to_db(file_name, "docId not found in response", label_text, refid)
 
         except Exception as e:
             print(f"❌ Error uploading {file_name}: {e}")
+            log_to_db(file_name, f"Upload error: {str(e)}", label_text, refid)
 
-# === Labels List ===
+# === Labels List SIT ===
+# data_labels = [
+#     ("btn_addition_file", "Upload additional documents", 489),
+#     ("btn_Amendments", "Draft Amendments to the PSC submitted", 475),
+#     ("btn_Annual_Audited", "Copy of signed Annual Audited Financial Statements of the Parent Company, if guarantor", 473),
+#     ("btn_article_28", "Undertakings by assignor (s) as per Article 28.1", 488),
+#     ("btn_authorising_transfer", "Assignor Board resolution authorising the transfer", 459),
+#     ("btn_Bank_Guarantee_by", "Bank Guarantee by the assignee company subsequent to the approval", 460),
+#     ("btn_Board_authorising", "Assignee Board resolution authorising the transfer", 458),
+#     ("btn_Board_resolution", "Copy of Board Resolution by the assignor company to assign PI in the block", 465),
+#     ("btn_Brief_corporate", "Brief on the corporate, technical capability & other information of the assignee", 461),
+#     ("btn_Copy_assignment", "Copy of assignment and assumption deed executed by the assignor (s) & assignee (s)", 462),
+#     ("btn_Copy_Board", "Copy of Board Resolution by the assignee company to assume PI from assignor", 463),
+#     ("btn_Copy_operating_Committee", "Copy of operating Committee Resolution (Management committee resolution...", 467),
+#     ("btn_Copy_signed", "Copy of signed Annual Audited Financial Statements / Printed Annual Reports for the preceding three years", 470),
+#     ("btn_Copy_signed_Annual", "Copy of signed Annual Audited Financial Statements / Printed Annual Reports for the preceding three years Assignee", 471),
+#     ("btn_Deed_partnership", "Deed of Assignment and Assumption submitted", 474),
+#     ("btn_draft_amendment", "Draft Amendment to PSC", 476),
+#     ("btn_Ex_Phase_I", "Exploration Phase-I / Initial Exploration Period", 478),
+#     ("btn_Ex_Phase_II", "Exploration Phase-II / Subsequent Exploration Period", 479),
+#     ("btn_Ex_Phase_III", "Exploration Phase-III", 477),
+#     ("btn_Family_tree", "Family tree of the parent company (in case of assignment to affiliates)", 481),
+#     ("btn_Financial_Performance", "Financial & Performance Guarantee by the Parent company else assignee", 482),
+#     ("btn_Memorandum", "A copy of Memorandum and Articles of Association / Certificate of incorporation of the assignee", 456),
+#     ("btn_No_objection_certificate", "No objection certificate from the consortium partners", 483),
+#     ("btn_Operating_committee_resolution", "Operating committee resolution for change of operator ship including licensee", 484),
+#     ("btn_PI_transfered", "PI transfered to ‘Affiliate’ or other related party are accordance of Article 28 of the PSC", 486),
+#     ("btn_power_attorney", "Copy of power of attorney / authority letter...on behalf of assignee (s)", 468),
+#     ("btn_Undertakings", "Undertakings by assignee (s) as per Article 28.1", 487)
+# ]
+
+
+# === Labels List (DEV) ===
 data_labels = [
-    ("btn_addition_file", "Upload additional documents", 489),
-    ("btn_Amendments", "Draft Amendments to the PSC submitted", 475),
-    ("btn_Annual_Audited", "Copy of signed Annual Audited Financial Statements of the Parent Company, if guarantor", 473),
-    ("btn_article_28", "Undertakings by assignor (s) as per Article 28.1", 488),
-    ("btn_authorising_transfer", "Assignor Board resolution authorising the transfer", 459),
-    ("btn_Bank_Guarantee_by", "Bank Guarantee by the assignee company subsequent to the approval", 460),
-    ("btn_Board_authorising", "Assignee Board resolution authorising the transfer", 458),
-    ("btn_Board_resolution", "Copy of Board Resolution by the assignor company to assign PI in the block", 465),
-    ("btn_Brief_corporate", "Brief on the corporate, technical capability & other information of the assignee", 461),
-    ("btn_Copy_assignment", "Copy of assignment and assumption deed executed by the assignor (s) & assignee (s)", 462),
-    ("btn_Copy_Board", "Copy of Board Resolution by the assignee company to assume PI from assignor", 463),
-    ("btn_Copy_operating_Committee", "Copy of operating Committee Resolution (Management committee resolution...", 467),
-    ("btn_Copy_signed", "Copy of signed Annual Audited Financial Statements / Printed Annual Reports for the preceding three years", 470),
-    ("btn_Copy_signed_Annual", "Copy of signed Annual Audited Financial Statements / Printed Annual Reports for the preceding three years Assignee", 471),
-    ("btn_Deed_partnership", "Deed of Assignment and Assumption submitted", 474),
-    ("btn_draft_amendment", "Draft Amendment to PSC", 476),
-    ("btn_Ex_Phase_I", "Exploration Phase-I / Initial Exploration Period", 478),
-    ("btn_Ex_Phase_II", "Exploration Phase-II / Subsequent Exploration Period", 479),
-    ("btn_Ex_Phase_III", "Exploration Phase-III", 477),
-    ("btn_Family_tree", "Family tree of the parent company (in case of assignment to affiliates)", 481),
-    ("btn_Financial_Performance", "Financial & Performance Guarantee by the Parent company else assignee", 482),
+    ("btn_addition_file", "Upload additional documents", 604),
+    ("btn_Amendments", "Draft Amendments to the PSC submitted", 590),
+    ("btn_Annual_Audited", "Copy of signed Annual Audited Financial Statements of the Parent Company, if guarantor", 588),
+    ("btn_article_28", "Undertakings by assignor (s) as per Article 28.1", 603),
+    ("btn_authorising_transfer", "Assignor Board resolution authorising the transfer", 574),
+    ("btn_Bank_Guarantee_by", "Bank Guarantee by the assignee company subsequent to the approval", 575),
+    ("btn_Board_authorising", "Assignee Board resolution authorising the transfer", 573),
+    ("btn_Board_resolution", "Copy of Board Resolution by the assignor company to assign PI in the block", 580),
+    ("btn_Brief_corporate", "Brief on the corporate, technical capability & other information of the assignee", 576),
+    ("btn_Copy_assignment", "Copy of assignment and assumption deed executed by the assignor (s) & assignee (s)", 577),
+    ("btn_Copy_Board", "Copy of Board Resolution by the assignee company to assume PI from assignor", 578),
+    ("btn_Copy_operating_Committee", "Copy of operating Committee Resolution (Management committee resolution in case the PI of the assignor becomes less than 10%)", 582),
+    ("btn_Copy_signed", "Copy of signed Annual Audited Financial Statements / Printed Annual Reports for the preceding three years", 585),
+    ("btn_Copy_signed_Annual", "Copy of signed Annual Audited Financial Statements / Printed Annual Reports for the preceding three years Assignee", 586),
+    ("btn_Deed_partnership", "Deed of Assignment and Assumption submitted", 589),
+    ("btn_draft_amendment", "Draft Amendment to PSC", 591),
+    ("btn_Ex_Phase_I", "Exploration Phase-I / Initial Exploration Period", 593),
+    ("btn_Ex_Phase_II", "Exploration Phase-II / Subsequent Exploration Period", 594),
+    ("btn_Ex_Phase_III", "Exploration Phase-III", 592),
+    ("btn_Family_tree", "Family tree of the parent company (in case of assignment to affiliates)", 595),
+    ("btn_Financial_Performance", "Financial & Performance Guarantee by the Parent company else assignee", 597),
     ("btn_Memorandum", "A copy of Memorandum and Articles of Association / Certificate of incorporation of the assignee", 456),
-    ("btn_No_objection_certificate", "No objection certificate from the consortium partners", 483),
-    ("btn_Operating_committee_resolution", "Operating committee resolution for change of operator ship including licensee", 484),
-    ("btn_PI_transfered", "PI transfered to ‘Affiliate’ or other related party are accordance of Article 28 of the PSC", 486),
-    ("btn_power_attorney", "Copy of power of attorney / authority letter...on behalf of assignee (s)", 468),
-    ("btn_Undertakings", "Undertakings by assignee (s) as per Article 28.1", 487)
+    ("btn_No_objection_certificate", "No objection certificate from the consortium partners", 598),
+    ("btn_Operating_committee_resolution", "Operating committee resolution for change of operator ship including licensee", 599),
+    ("btn_PI_transfered", "PI transfered to ‘Affiliate’ or other related party are accordance of Article 28 of the PSC", 601),
+    ("btn_power_attorney", "Copy of power of attorney / authority letter...on behalf of assignee (s)", 583),
+    ("btn_Undertakings", "Undertakings by assignee (s) as per Article 28.1", 602)
 ]
+
 
 for data_id, label_text, label_id in data_labels:
     process_label(data_id, label_text, label_id)
