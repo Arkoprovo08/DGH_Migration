@@ -2,11 +2,11 @@ import psycopg2
 
 # PostgreSQL DB Connection
 pg_conn = psycopg2.connect(
-    host="3.110.185.154",
+    host="13.127.174.112",
     port=5432,
     database="ims",
-    user="postgres",
-    password="P0$tgres@dgh"
+    user="imsadmin",
+    password="Dghims!2025"
 )
 
 try:
