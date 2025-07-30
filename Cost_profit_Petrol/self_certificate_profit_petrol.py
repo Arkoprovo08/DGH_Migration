@@ -5,24 +5,35 @@ from datetime import datetime
 
 # === Configuration ===
 DB_CONFIG = {
-    "host": "3.110.185.154",
+    "host": "13.127.174.112",
     "port": 5432,
     "database": "ims",
-    "user": "postgres",
-    "password": "P0$tgres@dgh"
+    "user": "imsadmin",
+    "password": "Dghims!2025"
 }
 
 FILES_DIR = r"C:\Users\Administrator.DGH\Desktop\dgh\Files\CMS\Uploads"
 API_URL = "http://k8s-ingressn-ingressn-1628ed6eec-bd2bc8d22bd4aed8.elb.ap-south-1.amazonaws.com/docs/documentManagement/uploadMultipleDocument"
 
-
+# === Helpers ===
 def get_financial_year(created_on):
     if isinstance(created_on, str):
         created_on = datetime.strptime(created_on, "%Y-%m-%d %H:%M:%S.%f")
     year = created_on.year
     return f"{year}-{year + 1}" if created_on.month > 3 else f"{year - 1}-{year}"
 
+def log_document_status(cursor, document_name, status, doc_type_name, refid):
+    try:
+        insert_query = """
+            INSERT INTO global_master.t_document_migration_status_details (
+                document_name, document_migration_status, doc_type_name, refid
+            ) VALUES (%s, %s, %s, %s)
+        """
+        cursor.execute(insert_query, (document_name, status, doc_type_name, refid))
+    except Exception as log_err:
+        print(f"⚠️ Failed to log status for {document_name}: {log_err}")
 
+# === Main Upload Function ===
 def upload_documents():
     try:
         conn = psycopg2.connect(**DB_CONFIG)
@@ -41,11 +52,17 @@ def upload_documents():
         print(f"Found {len(records)} documents to upload...")
 
         for ref_id, file_name, block_category, block_name, created_on in records:
+            if not file_name:
+                print(f"⚠️ No self certificate for REF_ID: {ref_id}")
+                log_document_status(cursor, "NULL", "No self certificate", "Self Certificate", ref_id)
+                continue
+
             file_path = os.path.join(FILES_DIR, file_name)
             print(f"\n📂 Processing file: {file_name} for REF_ID: {ref_id}")
 
             if not os.path.isfile(file_path):
                 print(f"⚠️ File not found: {file_path}")
+                log_document_status(cursor, file_name, "File Not Found", "Self Certificate", ref_id)
                 continue
 
             files = {'files': open(file_path, 'rb')}
@@ -74,28 +91,31 @@ def upload_documents():
                 if doc_id:
                     print(f"✅ Success - Logical Doc ID: {doc_id}")
 
-                    # Update Logical Doc ID in frm_workitem_master_new
-                    update_fwmn = """
+                    # Update frm_workitem_master_new
+                    cursor.execute("""
                         UPDATE dgh_staging.frm_workitem_master_new
                         SET LOGICAL_DOC_ID = %s
                         WHERE dgh_letter = %s
-                    """
-                    cursor.execute(update_fwmn, (doc_id, file_name))
+                    """, (doc_id, file_name))
 
-                    # Update self certificate info in appointment_auditor_details
-                    update_audit = """
+                    # Update t_cost_and_profit_petroleum_calculations
+                    cursor.execute("""
                         UPDATE financial_mgmt.t_cost_and_profit_petroleum_calculations
                         SET self_certificate_id = %s,
                             self_certificate_file_name = %s,
                             self_certificate_generation_date = NOW()
                         WHERE appointment_auditor_application_number = %s
-                    """
-                    cursor.execute(update_audit, (doc_id, file_name, ref_id))
+                    """, (doc_id, file_name, ref_id))
+
+                    log_document_status(cursor, file_name, "Uploaded", "Self Certificate", ref_id)
+
                 else:
                     print(f"⚠️ docId not found in response for: {file_name}")
+                    log_document_status(cursor, file_name, "Upload Failed - No docId", "Self Certificate", ref_id)
 
             except Exception as err:
                 print(f"❌ Error uploading {file_name}: {err}")
+                log_document_status(cursor, file_name, f"Upload Failed - {err}", "Self Certificate", ref_id)
 
         conn.commit()
         cursor.close()
@@ -105,6 +125,6 @@ def upload_documents():
     except Exception as db_err:
         print(f"❌ Database connection failed: {db_err}")
 
-
+# === Run ===
 if __name__ == "__main__":
     upload_documents()
