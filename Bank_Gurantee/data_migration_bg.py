@@ -1,149 +1,185 @@
+import os
+import sys
 import oracledb
 import psycopg2
+import requests
+from datetime import datetime
 
-def migrate_bg_data():
-    # 1️⃣ Connect to Oracle (source)
-    src_conn = oracledb.connect(
-        user="PWCIMS",
-        password="PWCIMS2025",
-        dsn=oracledb.makedsn("192.168.0.133", 1521, sid="ORCL")
-    )
-    src_cursor = src_conn.cursor()
+# === Redirect stdout to log file ===
+log_file = "migration_output.txt"
+sys.stdout = open(log_file, "w", encoding="utf-8")
+sys.stderr = sys.stdout
 
-    # 2️⃣ Connect to Postgres (target)
-    tgt_conn = psycopg2.connect(
-        host="3.110.185.154",
-        port=5432,
-        database="ims",
-        user="postgres",
-        password="P0$tgres@dgh"
-    )
-    tgt_cursor = tgt_conn.cursor()
+# === Oracle DB Config ===
+ORCL_USER = "PWCIMS"
+ORCL_PASSWORD = "PWCIMS2025"
+ORCL_HOST = "192.168.0.133"
+ORCL_PORT = 1521
+ORCL_SID = "ORCL"
+ORCL_DSN = oracledb.makedsn(ORCL_HOST, ORCL_PORT, sid=ORCL_SID)
 
+# === PostgreSQL DB Config ===
+POSTGRES_CONN = psycopg2.connect(
+    host="13.127.174.112",
+    port=5432,
+    database="ims",
+    user="imsadmin",
+    password="Dghims!2025"
+)
+postgres_cursor = POSTGRES_CONN.cursor()
+
+# === API Config ===
+API_URL = "http://k8s-ingressn-ingressn-1628ed6eec-bd2bc8d22bd4aed8.elb.ap-south-1.amazonaws.com/docs/documentManagement/uploadMultipleDocument"
+FILES_DIR = r"\\192.168.0.126\it\CMS\Uploads1"
+
+# === Utility ===
+def get_financial_year(created_on):
+    if isinstance(created_on, str):
+        created_on = datetime.strptime(created_on, "%Y-%m-%d %H:%M:%S.%f")
+    year = created_on.year
+    return f"{year}-{year + 1}" if created_on.month > 3 else f"{year - 1}-{year}"
+
+# === Logging Function ===
+def log_status(document_name, status, doc_type, refid):
+    insert_query = """
+        INSERT INTO global_master.t_document_migration_status_details
+        (document_name, document_migration_status, doc_type_name, refid)
+        VALUES (%s, %s, %s, %s)
+    """
     try:
-        # 3️⃣ Get all rows to migrate
-        src_cursor.execute("""
-            SELECT 
-                REFID, DOS_CONTRACT, BLOCKNAME, BLOCKCATEGORY,
-                REF_TOPSC_ARTICALNO, NAME_AUTH_SIG_CONTRA, DESIGNATION, CREATED_BY,
-                CREATED_ON, REMARKS, CONTRACTNAME, BG_NO, DATE_OF_BG, DATE_OF_EXP_BG,
-                CLIAM_OF_EXP_DATE_OF_BG, APPLICABLE_PERC_BG,
-                AMT_OF_BG, USD_INTO_INR, EXCHANGE_RATE_TAKEN, EXCHANGE_RATE_DATE,
-                NAME_OF_BANK, SCHEDULED_UNDER_RBI, ADDRESS_OF_BANK, SIG_DIGITAL_SIG,
-                IS_BG_FORMAT_PSC, BG_REVISED_EXTENDED_CHK,
-                USD_INR, BG_SUBMITTED_BY, NEW_PREV_BG_LINKED, PREV_BG_LINKED_DET,
-                CONSORTIUM
-            FROM FRAMEWORK01.FORM_SUB_BG_LEGAL_RENEWAL
-            WHERE STATUS = '1'
-        """)
-
-        rows = src_cursor.fetchall()
-        print(f"✅ Total rows fetched: {len(rows)}")
-
-        # 4️⃣ Organize rows by REFID
-        data_by_refid = {}
-        for row in rows:
-            refid = row[0]
-            if refid not in data_by_refid:
-                data_by_refid[refid] = []
-            data_by_refid[refid].append(row)
-
-        print(f"✅ Unique REFIDs: {len(data_by_refid)}")
-
-        # 5️⃣ Migrate each REFID group
-        for refid, rows in data_by_refid.items():
-            first_row = rows[0]
-            (
-                _refid, dos_contract, blockname, blockcategory,
-                ref_topsc_articalno, name_auth_sig_contra, designation, source_created_by,
-                created_on, remarks, contractor_name, *_  # Ignore details columns here
-            ) = first_row
-
-            # ✅ Resolve actual user_id — fallback to NULL if not found
-            tgt_cursor.execute("""
-                SELECT user_id 
-                FROM user_profile.m_user_master 
-                WHERE is_migrated = 1 AND migrated_user_id = %s
-            """, (source_created_by,))
-            user_id_result = tgt_cursor.fetchone()
-            resolved_user_id = user_id_result[0] if user_id_result else None
-
-            if resolved_user_id is None:
-                print(f"⚠️ No user found for CREATED_BY = {source_created_by} ➜ inserting NULL for created_by")
-
-            # Insert into header table
-            header_sql = """
-                INSERT INTO financial_mgmt.t_bank_gurantee_header
-                (
-                    bank_gurantee_application_number, dos_contract, block_name, 
-                    block_category, ref_topsc_artical_no, name_auth_sig_contra, designation, 
-                    created_by, creation_date, remarks, contractor_name, process_id, is_migrated
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING bank_gurantee_header_id
-            """
-            header_values = (
-                refid, dos_contract, blockname,
-                blockcategory, ref_topsc_articalno, name_auth_sig_contra, designation,
-                resolved_user_id, created_on, remarks, contractor_name, 18,1
-            )
-
-            tgt_cursor.execute(header_sql, header_values)
-            header_id = tgt_cursor.fetchone()[0]
-            print(f"✅ Inserted header REFID {refid} ➜ bank_gurantee_header_id {header_id}")
-
-            # Insert each detail row
-            for row in rows:
-                (
-                    _refid, _dos_contract, _blockname, _blockcategory,
-                    _ref_topsc_articalno, _name_auth_sig_contra, _designation, _created_by,
-                    _created_on, _remarks, _contractor_name, bg_no, date_of_bg, date_of_exp_bg,
-                    cliam_of_exp_date_of_bg, applicable_perc_bg,
-                    amt_of_bg, usd_into_inr, exchange_rate_taken, exchange_rate_date,
-                    name_of_bank, scheduled_under_rbi, address_of_bank, sig_digital_sig,
-                    is_bg_format_psc, bg_revised_extended_chk,
-                    usd_inr, bg_submitted_by, new_prev_bg_linked, prev_bg_linked_det,
-                    consortium
-                ) = row
-
-                detail_sql = """
-                    INSERT INTO financial_mgmt.t_bank_gurantee_details
-                    (
-                        contractor_name, bg_no, date_of_bg, date_of_exp_bg, cliam_of_exp_date_of_bg,
-                        applicable_perc_bg, amt_of_bg, usd_into_inr,
-                        exchange_rate_taken, exchange_rate_date, name_of_bank, scheduled_under_rbi,
-                        address_of_bank, sig_digital_sig, current_status, is_bg_format_psc,
-                        bg_revised_extended_chk, usd_inr, bg_submitted_by, new_prev_bg_linked,
-                        prev_bg_linked_det, consortium, bank_gurantee_header_id, is_migrated
-                    )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-
-                """
-
-                detail_values = (
-                    _contractor_name, bg_no, date_of_bg, date_of_exp_bg, cliam_of_exp_date_of_bg,
-                    applicable_perc_bg, amt_of_bg, usd_into_inr,
-                    exchange_rate_taken, exchange_rate_date, name_of_bank, scheduled_under_rbi,
-                    address_of_bank, sig_digital_sig, 'DRAFT',  is_bg_format_psc,
-                    bg_revised_extended_chk, usd_inr, bg_submitted_by, new_prev_bg_linked,
-                    prev_bg_linked_det, consortium, header_id, 1
-                )
-
-                tgt_cursor.execute(detail_sql, detail_values)
-
-            # Commit after each REFID group
-            tgt_conn.commit()
-            print(f"✅ Inserted {len(rows)} details for REFID {refid}")
-
+        postgres_cursor.execute(insert_query, (document_name, status, doc_type, refid))
+        POSTGRES_CONN.commit()
     except Exception as e:
-        print(f"❌ Migration failed: {e}")
-        tgt_conn.rollback()
-    finally:
-        src_cursor.close()
-        src_conn.close()
-        tgt_cursor.close()
-        tgt_conn.close()
-        print("✅ All connections closed.")
+        print(f"⚠️ Failed to log status for {document_name}: {e}")
 
-if __name__ == "__main__":
-    migrate_bg_data()
+# === Document Processing ===
+def process_documents(cursor, query, label, label_id):
+    cursor.execute(query)
+    rows = cursor.fetchall()
+
+    for refid, file_name, regime, block, created_on, file_id in rows:
+        print(f"\nProcessing {label}:")
+        print(regime, block, refid, sep='\n')
+
+        if not file_name:
+            print(f"❌ No self certificate: {refid}")
+            log_status("NULL", "No self certificate", label, refid)
+            continue
+
+        file_path = os.path.join(FILES_DIR, file_name)
+
+        if not os.path.exists(file_path):
+            print(f"❌ File not found: {file_path}")
+            log_status(file_name, "File Not Found", label, refid)
+            continue
+
+        files = {'files': open(file_path, 'rb')}
+        data = {
+            'regime': regime,
+            'block': block,
+            'module': 'Financial Management',
+            'process': 'Bank Guarantee and Legal Opinion, and renewal and revised Bank Guarantee',
+            'financialYear': get_financial_year(created_on),
+            'referenceNumber': refid,
+            'label': label
+        }
+
+        try:
+            response = requests.post(API_URL, files=files, data=data)
+            print(f"\n--- API response for {file_name} ---\n{response.text}\n")
+            response.raise_for_status()
+
+            response_json = response.json()
+            response_objects = response_json.get("responseObject", [])
+
+            logical_doc_id = None
+            for item in response_objects:
+                if item.get("fileName") == file_name:
+                    logical_doc_id = item.get("docId")
+                    break
+
+            if logical_doc_id:
+                print(f"✅ Uploaded: {file_name} ➜ docId: {logical_doc_id}")
+
+                # Update PostgreSQL
+                pg_update = """
+                    UPDATE dgh_staging.CMS_FILES
+                    SET LOGICAL_DOC_ID = %s, LABEL_ID = %s
+                    WHERE FILE_ID = %s
+                """
+                postgres_cursor.execute(pg_update, (logical_doc_id, label_id, file_id))
+                POSTGRES_CONN.commit()
+
+                log_status(file_name, "Uploaded", label, refid)
+            else:
+                print(f"⚠️ docId not found in responseObject for {file_name}")
+                log_status(file_name, "docId Missing in Response", label, refid)
+
+        except Exception as upload_err:
+            print(f"❌ Upload failed for {file_name}: {upload_err}")
+            log_status(file_name, "Upload Failed", label, refid)
+
+# === Main Execution ===
+try:
+    oracle_conn = oracledb.connect(
+        user=ORCL_USER,
+        password=ORCL_PASSWORD,
+        dsn=ORCL_DSN
+    )
+    oracle_cursor = oracle_conn.cursor()
+    print("✅ Connected to Oracle database.")
+
+    # --- Document Sets ---
+    query_scope = """SELECT faao.REFID,cf.FILE_NAME,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cf.FILE_ID
+        FROM FRAMEWORK01.FORM_SUB_BG_LEGAL_RENEWAL faao
+        JOIN FRAMEWORK01.CMS_MASTER_FILEREF cmf ON faao.UPLOAD_LEGAL_OPINION = cmf.FILEREF
+        JOIN FRAMEWORK01.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
+        JOIN FRAMEWORK01.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
+        WHERE cmf.ACTIVE = 1 and faao.STATUS = 1"""
+    process_documents(oracle_cursor, query_scope, "Upload Legal Opinion Document", 10)
+
+    query_ocr = """SELECT faao.REFID,cf.FILE_NAME,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cf.FILE_ID
+        FROM FRAMEWORK01.FORM_SUB_BG_LEGAL_RENEWAL faao
+        JOIN FRAMEWORK01.CMS_MASTER_FILEREF cmf ON faao.UPLOAD_BG = cmf.FILEREF
+        JOIN FRAMEWORK01.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
+        JOIN FRAMEWORK01.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
+        WHERE cmf.ACTIVE = 1  and faao.STATUS = 1"""
+    process_documents(oracle_cursor, query_ocr, "Upload Bank Guarantee", 11)
+
+    query_mc = """SELECT faao.REFID,cf.FILE_NAME,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cf.FILE_ID
+        FROM FRAMEWORK01.FORM_SUB_BG_LEGAL_RENEWAL faao
+        JOIN FRAMEWORK01.CMS_MASTER_FILEREF cmf ON faao.PREV_BG_LINKED_DET = cmf.FILEREF
+        JOIN FRAMEWORK01.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
+        JOIN FRAMEWORK01.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
+        WHERE cmf.ACTIVE = 1  and faao.STATUS = 1"""
+    process_documents(oracle_cursor, query_mc, "Upload Previous BG Document", 9)
+
+    query_sig = """SELECT faao.REFID,cf.FILE_NAME,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cf.FILE_ID
+        FROM FRAMEWORK01.FORM_SUB_BG_LEGAL_RENEWAL faao
+        JOIN FRAMEWORK01.CMS_MASTER_FILEREF cmf ON faao.SIG_DIGITAL_SIG = cmf.FILEREF
+        JOIN FRAMEWORK01.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
+        JOIN FRAMEWORK01.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
+        WHERE cmf.ACTIVE = 1  and faao.STATUS = 1"""
+    process_documents(oracle_cursor, query_sig, "Signature/Digital Signature", 250)
+
+    query_add = """SELECT FAAO.REFID ,CF.FILE_NAME ,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cfr.FILE_ID
+        FROM FRAMEWORK01.FORM_SUB_BG_LEGAL_RENEWAL faao 
+        JOIN FRAMEWORK01.CMS_FILE_REF cfr ON CFR.REF_ID = FAAO.FILEREF
+        JOIN FRAMEWORK01.CMS_FILES cf ON CFR.FILE_ID = CF.FILE_ID
+        WHERE CFR.IS_ACTIVE = 1  and faao.STATUS = 1"""
+    process_documents(oracle_cursor, query_add, "Additional File, If Any", 12)
+
+    # === Cleanup ===
+    print("✅ All files processed.")
+    oracle_cursor.close()
+    oracle_conn.close()
+    postgres_cursor.close()
+    POSTGRES_CONN.close()
+    print("✅ Database connections closed.")
+
+except Exception as err:
+    print(f"❌ Error occurred: {err}")
+
+# === Restore terminal output (optional) ===
+sys.stdout.close()
+sys.stdout = sys.__stdout__
