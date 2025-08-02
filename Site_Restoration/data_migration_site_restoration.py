@@ -1,35 +1,30 @@
-import oracledb
 import psycopg2
 from datetime import datetime
 
 def migrate_site_restoration():
-    # Oracle Source DB
-    src_conn = oracledb.connect(
-        user="PWCIMS",
-        password="PWCIMS2025",
-        dsn=oracledb.makedsn("192.168.0.133", 1521, sid="ORCL")
-    )
-    src_cursor = src_conn.cursor()
-
-    # PostgreSQL Target DB
-    tgt_conn = psycopg2.connect(
-        host="3.110.185.154",
+    conn = psycopg2.connect(
+        host="13.127.174.112",
         port=5432,
         database="ims",
-        user="postgres",
-        password="P0$tgres@dgh"
+        user="imsadmin",
+        password="Dghims!2025"
     )
-    tgt_cursor = tgt_conn.cursor()
+    src_cursor = conn.cursor()
+    tgt_cursor = conn.cursor()
 
     try:
         # Step 1: Insert base site restoration records
         src_cursor.execute("""
-            SELECT REF_ID, CONTRACTNAME, BLOCKCATEGORY, DATE_EFFECTIVE, BLOCKNAME, 
-                   REF_TOPSC_ARTICALNO, OCR_AVAIABLE, OCR_UNAVAIABLE_TXT,
-                   CREATED_BY, CREATED_ON, BID_ROUND, DESIGNATION, 
-                   DOS_CONTRACT, NAME_AUTH_SIG_CONTRA
-            FROM FRAMEWORK01.FORM_SITE_RESTORATION
-            WHERE status = 1
+            SELECT a."REF_ID", a."CONTRACTNAME", a."BLOCKCATEGORY", a."DATE_EFFECTIVE", a."BLOCKNAME", 
+                   a."REF_TOPSC_ARTICALNO", a."OCR_AVAIABLE", a."OCR_UNAVAIABLE_TXT",
+                   a."CREATED_BY", a."CREATED_ON", a."BID_ROUND", a."DESIGNATION", 
+                   a."DOS_CONTRACT", a."NAME_AUTH_SIG_CONTRA", fc.comment_data
+            FROM dgh_staging.FORM_SITE_RESTORATION a
+            JOIN dgh_staging.frm_workitem_master_new b 
+                ON a."REF_ID" = b.ref_id
+            LEFT JOIN dgh_staging.frm_comments fc 
+                ON fc.comment_id = a."COMMENT_ID"
+            WHERE a."STATUS" = '1' AND a."IS_ACTIVE" = '1'
         """)
         records = src_cursor.fetchall()
         print(f"✅ Step 1: Found {len(records)} records to migrate.")
@@ -39,7 +34,7 @@ def migrate_site_restoration():
                 ref_id, contractor_name, block_category, eff_date_contract, block_name,
                 psc_article_no, ocr_available, ocr_unavailability_text,
                 source_created_by, creation_date, bid_round, designation,
-                dos_contract, name_auth_signatory
+                dos_contract, name_auth_signatory, comment_data
             ) = row
 
             # Resolve created_by from migrated_user_id
@@ -56,7 +51,6 @@ def migrate_site_restoration():
             resolved_user_id = user_result[0]
             is_ocr_available = 1 if (ocr_available or '').strip().upper() == 'YES' else 0
 
-            # Insert into Postgres
             insert_sql = """
                 INSERT INTO site_restoration.t_site_restoration_abandonment_details (
                     site_restoration_abandonment_application_number,
@@ -64,8 +58,9 @@ def migrate_site_restoration():
                     psc_article_no, ocr_available, ocr_unaivailability_text, 
                     created_by, creation_date, awarded_under, designation, 
                     dos_contract, name_authorized_signatory, current_status, 
-                    declaration_checkbox, process_id, is_active, is_migrated
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    declaration_checkbox, process_id, is_active, is_migrated,
+                    remarks
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
 
             tgt_cursor.execute(insert_sql, (
@@ -73,23 +68,30 @@ def migrate_site_restoration():
                 psc_article_no, is_ocr_available, ocr_unavailability_text,
                 resolved_user_id, creation_date, bid_round, designation,
                 dos_contract, name_auth_signatory, 'DRAFT',
-                '{}', 24, 1, 1  # process_id = 24, is_active = 1, is_migrated = 1
+                '{}', 24, 1, 1, comment_data
             ))
 
             print(f"✅ Inserted REF_ID {ref_id}")
-            tgt_conn.commit()
+            conn.commit()
 
-        # Step 2: Update additional details
+        # Step 2: Update detailed fields
         src_cursor.execute("""
-            SELECT DISTINCT refid FROM FRAMEWORK01.FORM_SITE_RESTORATION_DATA WHERE status = 1
+            SELECT DISTINCT a."REFID"
+            FROM dgh_staging.FORM_SITE_RESTORATION_DATA a
+            JOIN dgh_staging.FORM_SITE_RESTORATION b 
+                ON a."REFID" = b."REF_ID"
+            WHERE a."STATUS" = '1'
         """)
         detail_refs = src_cursor.fetchall()
-        print(f"✅ Step 2: Found {len(detail_refs)} records for detailed update.")
+        print(f"✅ Step 2: Found {len(detail_refs)} detail records to update.")
 
         for (refid,) in detail_refs:
             src_cursor.execute("""
-                SELECT data_id, data_value FROM FRAMEWORK01.FORM_SITE_RESTORATION_DATA WHERE refid = :refid
-            """, {'refid': refid})
+                SELECT "DATA_ID", "DATA_VALUE"
+                FROM dgh_staging.FORM_SITE_RESTORATION_DATA a
+                JOIN dgh_staging.FORM_SITE_RESTORATION b ON a."REFID" = b."REF_ID"
+                WHERE a."REFID" = %s
+            """, (refid,))
             data = {row[0]: row[1] for row in src_cursor.fetchall()}
 
             def get_val(k): return data.get(k)
@@ -101,7 +103,6 @@ def migrate_site_restoration():
                 except: return None
             def parse_bool(v): return 1 if (v or '').strip().upper() == 'YES' else 0
 
-            # Extract fields
             v_srf_1999 = get_val('DDL_SRF_1999')
             v_srf_2018 = get_val('DDL_SRF_2018')
             v_srf_2021 = get_val('DDL_SRF_2021')
@@ -116,7 +117,6 @@ def migrate_site_restoration():
             is_calc_provided = parse_bool(v_details_calc)
             is_compl_psc = parse_bool(v_profit_petroleum)
 
-            # Update
             update_sql = """
                 UPDATE site_restoration.t_site_restoration_abandonment_details
                 SET srf_1999_value = %s,
@@ -138,18 +138,17 @@ def migrate_site_restoration():
                 v_bg_date, v_bg_amt, is_calc_provided, refid
             ))
 
-            tgt_conn.commit()
+            conn.commit()
             print(f"🔄 Updated REF_ID {refid}")
 
     except Exception as e:
         print(f"❌ Migration failed: {e}")
-        tgt_conn.rollback()
+        conn.rollback()
     finally:
         src_cursor.close()
-        src_conn.close()
         tgt_cursor.close()
-        tgt_conn.close()
-        print("✅ All DB connections closed.")
+        conn.close()
+        print("✅ PostgreSQL connection closed.")
 
 if __name__ == "__main__":
     migrate_site_restoration()
