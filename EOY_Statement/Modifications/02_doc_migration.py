@@ -20,7 +20,7 @@ postgres_cursor = POSTGRES_CONN.cursor()
 
 # === API Config ===
 API_URL = "http://k8s-ingressn-ingressn-1628ed6eec-bd2bc8d22bd4aed8.elb.ap-south-1.amazonaws.com/docs/documentManagement/uploadMultipleDocument"
-FILES_DIR = r"C:\Users\Administrator.DGH\Desktop\dgh\Files\CMS\Uploads"
+FILES_DIR = r"C:\\Users\\Administrator.DGH\\Desktop\\dgh\\Files\\CMS\\Uploads"
 
 # === Btn to Doc Type Mapping ===
 BTN_MAP = {
@@ -137,20 +137,20 @@ SELECT
     fad."REFID",
     fad."DATA_ID",
     cf.file_name,
-    faad."BLOCKCATEGORY",
-    faad."BLOCKNAME",
-    faad."CREATED_ON",
+    eoy.block_category,
+    eoy.block_name,
+    eoy.creation_date,
     cf.file_id
 FROM dgh_staging.form_audited_accounts_data fad
-LEFT JOIN dgh_staging.form_audited_accounts faad
-    ON fad."REFID" = faad."REF_ID"
-LEFT JOIN dgh_staging.cms_file_ref cfr
+join financial_mgmt.t_eoy_statement_and_audited_accounts_details eoy
+on eoy.eoy_statement_and_audited_accounts_details_application_number = fad."REFID"
+JOIN dgh_staging.cms_file_ref cfr
     ON fad."DATA_VALUE" = cfr.ref_id
     AND cfr.is_active = 1
-LEFT JOIN dgh_staging.cms_files cf
+JOIN dgh_staging.cms_files cf
     ON cfr.file_id = cf.file_id
     AND cf.is_active = 1
-LEFT JOIN dgh_staging.frm_workitem_master_new a
+JOIN dgh_staging.frm_workitem_master_new a
     ON a.ref_id = fad."REFID"
 WHERE
     fad."DATA_ID" LIKE 'Btn%%'
