@@ -4,26 +4,25 @@ import psycopg2
 import requests
 from datetime import datetime
 
-# Redirect output to a log file
+# === Redirect output/log ===
 sys.stdout = open("eoy_audited_accounts_doc_migration_log.txt", "w", encoding="utf-8")
 sys.stderr = sys.stdout
 
-# Database connection
+# === PostgreSQL Connection ===
 POSTGRES_CONN = psycopg2.connect(
-    host="13.127.174.112",
+    host="3.110.185.154",
     port=5432,
     database="ims",
-    user="imsadmin",
-    password="Dghims!2025"
+    user="postgres",
+    password="P0$tgres@dgh"
 )
 postgres_cursor = POSTGRES_CONN.cursor()
 
-# API endpoint and files directory
+# === API Config ===
 API_URL = "http://k8s-ingressn-ingressn-1628ed6eec-bd2bc8d22bd4aed8.elb.ap-south-1.amazonaws.com/docs/documentManagement/uploadMultipleDocument"
-
 FILES_DIR = r"C:\Users\Administrator.DGH\Desktop\dgh\Files\CMS\Uploads"
 
-# --- Mapping: Btn DATA_ID -> (document_type_name, document_type_id) ---
+# === Btn to Doc Type Mapping ===
 BTN_MAP = {
     "Btn_addition_file": ("Upload Additional Documents", 468),
     "Btn_all_Exploration": ("Quantum of all Exploration G&G activities (Estimate vs Actual)", 454),
@@ -113,11 +112,25 @@ BTN_MAP = {
 
 def get_financial_year(created_on):
     if isinstance(created_on, str):
-        created_on = datetime.strptime(created_on, "%Y-%m-%d %H:%M:%S")
+        try:
+            created_on = datetime.strptime(created_on, "%Y-%m-%d %H:%M:%S")
+        except Exception:
+            created_on = datetime.strptime(created_on, "%Y-%m-%d")
     year = created_on.year
     return f"{year}-{year + 1}" if created_on.month > 3 else f"{year - 1}-{year}"
 
-print("\n=== Starting EOY Document Migration ===")
+def log_migration_status(document_name, status, doc_type_name, refid):
+    postgres_cursor.execute(
+        """
+        INSERT INTO global_master.t_document_migration_status_details 
+            (document_name, document_migration_status, doc_type_name, refid)
+        VALUES (%s, %s, %s, %s)
+        """,
+        (document_name, status, doc_type_name, refid)
+    )
+    POSTGRES_CONN.commit()
+
+print("=== Starting EOY Document Migration ===")
 
 query = """
 SELECT
@@ -154,6 +167,7 @@ for row in rows:
     btn_type = BTN_MAP.get(data_id)
     if not btn_type:
         print(f"⚠️ DATA_ID {data_id} not mapped to any document type. Skipping file: {file_name}")
+        log_migration_status(file_name, "Upload Failed", None, refid)
         continue
     doc_type_name, doc_type_id = btn_type
 
@@ -162,6 +176,7 @@ for row in rows:
 
     if not os.path.exists(file_path):
         print(f"❌ File not found: {file_path}")
+        log_migration_status(file_name, "File Not Found", doc_type_name, refid)
         continue
 
     try:
@@ -170,7 +185,7 @@ for row in rows:
             data = {
                 'blockCategory': block_category,
                 'block': block_name,
-                'module': 'Financial Mgmt',
+                'module': 'Financial Management',
                 'process': 'EOY Audited Accounts',
                 'financialYear': get_financial_year(created_on),
                 'referenceNumber': refid,
@@ -180,7 +195,6 @@ for row in rows:
             response = requests.post(API_URL, files=files, data=data)
             print(f"🌐 API Response: {response.text}")
             response.raise_for_status()
-
             response_json = response.json()
             response_objects = response_json.get("responseObject", [])
 
@@ -199,11 +213,13 @@ for row in rows:
                 """
                 postgres_cursor.execute(update_query, (logical_doc_id, doc_type_id, file_id))
                 POSTGRES_CONN.commit()
+                log_migration_status(file_name, "Uploaded", doc_type_name, refid)
             else:
                 print(f"⚠️ docId not found in API response.")
-
+                log_migration_status(file_name, "Upload Failed", doc_type_name, refid)
     except Exception as err:
         print(f"❌ Upload failed for {file_name}: {err}")
+        log_migration_status(file_name, "Upload Failed", doc_type_name, refid)
 
 postgres_cursor.close()
 POSTGRES_CONN.close()
