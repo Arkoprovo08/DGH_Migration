@@ -12,11 +12,11 @@ def migrate_insurance_indemnity():
 
     # 2️⃣ Connect to Postgres (target)
     tgt_conn = psycopg2.connect(
-        host="3.110.185.154",
+        host="13.127.174.112",
         port=5432,
         database="ims",
-        user="postgres",
-        password="P0$tgres@dgh"
+        user="imsadmin",
+        password="Dghims!2025"
     )
     tgt_cursor = tgt_conn.cursor()
 
@@ -104,7 +104,7 @@ def migrate_insurance_indemnity():
                 1,             # is_active
                 'DRAFT',       # current_status
                 23,            # process_id
-                '{}',          # declaration_checkbox
+                '{"acceptTerm1": true}',          # declaration_checkbox
                 1              # is_migrated
             )
 

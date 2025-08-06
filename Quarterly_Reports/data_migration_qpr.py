@@ -29,14 +29,23 @@ def resolve_user(cursor, migrated_user_id):
 
 def migrate_header(cursor):
     cursor.execute("""
-        SELECT REFID, CONTRACTNAME, BLOCKCATEGORY, DOS_CONTRACT, BLOCKNAME,
-               REF_TOPSC_ARTICALNO, PERIOD_OF_REPORTING, FINANCIAL_YEARS,
-               CURRENCY, EXCHANGE_RATE, DATE_EXCHANGE_RATE,
-               a.CREATED_BY, a.CREATED_ON, NAME_AUTH_SIG_CONTRA,
-               DESIGNATION, COMMENTID, REVENUE_GOIPP_NA
+        SELECT 
+            a.REFID, a.CONTRACTNAME, a.BLOCKCATEGORY, a.DOS_CONTRACT, a.BLOCKNAME,
+            a.REF_TOPSC_ARTICALNO, a.PERIOD_OF_REPORTING, a.FINANCIAL_YEARS,
+            a.CURRENCY, a.EXCHANGE_RATE, a.DATE_EXCHANGE_RATE,
+            a.CREATED_BY, a.CREATED_ON, a.NAME_AUTH_SIG_CONTRA,
+            a.DESIGNATION, b.comment_data, a.REVENUE_GOIPP_NA
         FROM dgh_staging.FORM_PROGRESS_REPORT a
+        JOIN 
+        (
+            SELECT DISTINCT ON (comment_id) comment_id, comment_data
+            FROM dgh_staging.frm_comments
+            WHERE is_active = '1'
+            ORDER BY comment_id, id  
+        ) b ON a.commentid = b.comment_id
         JOIN dgh_staging.frm_workitem_master_new fwmn ON fwmn.ref_id = a.refid
-        WHERE STATUS = 1 and refid = 'QPR-20230123120130'
+        WHERE a.STATUS = 1
+        AND a.refid = 'QPR-20230123120130';
     """)
     rows = cursor.fetchall()
     print(f"📦 Migrating {len(rows)} QPR headers...")
@@ -61,9 +70,9 @@ def migrate_header(cursor):
                 date_of_contract_signature, block_name, ref_psc_article_no, period_of_reporting_quarter,
                 period_of_reporting_year, period_of_reporting_currency, exchange_rate_considered,
                 exchange_rate_date, created_by, creation_date, name_of_authorised_signatory,
-                designation, remarks, is_goipp, process_id, is_active, is_migrated, current_status
+                designation, remarks, is_goipp, process_id, is_active, is_migrated, current_status,declaration_checkbox
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1, 1, 1, 'DRAFT')
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1, 1, 1, 'DRAFT',{"acceptTerm1": true})
             RETURNING quarterly_report_id
         """
         cursor.execute(insert_sql, (

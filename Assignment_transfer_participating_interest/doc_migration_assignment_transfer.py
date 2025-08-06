@@ -47,19 +47,20 @@ def process_label(data_id, label_text, label_id):
     query = f'''
         SELECT 
             cmf.refid,
-            faao.data_id ,
+            faao.data_id,
             cf.FILE_NAME,
-            fcdfc.BLOCKCATEGORY,
-            fcdfc.BLOCKNAME,
+            fcdfc.BLOCKCATEGORY,  
+            b.block_name as block_name, 
             fcdfc.CREATED_BY,
             cf.FILE_ID
         FROM dgh_staging.form_assignment_interest_data faao
         JOIN dgh_staging.CMS_MASTER_FILEREF cmf ON faao.DATA_VALUE = cmf.FILEREF
         JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
         JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-        JOIN dgh_staging.form_assignment_interest fcdfc ON fcdfc.ref_id  = faao.REFID
-        WHERE cmf.ACTIVE = '1' AND faao.DATA_ID = %s AND faao.STATUS = '1' AND fcdfc.status = '1'
-        ORDER BY faao.refid, faao.data_id;
+        JOIN dgh_staging.form_assignment_interest fcdfc ON fcdfc.ref_id = faao.REFID
+        LEFT JOIN exploration_mining_permits.m_block_master b ON b.migrated_block_id = fcdfc.blockname::int AND b.regime = fcdfc.BLOCKCATEGORY  
+        WHERE cmf.ACTIVE = '1' AND faao.DATA_ID = '%s AND faao.STATUS = '1' AND fcdfc.status = '1'
+        ORDER BY faao.refid, faao.data_id;			
     '''
 
     postgres_cursor.execute(query, (data_id,))
