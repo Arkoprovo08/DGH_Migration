@@ -13,7 +13,6 @@ try:
     pg_cursor = pg_conn.cursor()
     print("✅ Connected to PostgreSQL")
 
-    # Your buyer details query with row numbering
     pg_cursor.execute("""
         SELECT 
             b.refid,
