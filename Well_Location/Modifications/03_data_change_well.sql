@@ -25,7 +25,7 @@ SELECT
         ELSE NULL
     END AS well_type,
     'Change' AS task_type,
-    data."WELL_TYPE_NAME" as well_name,
+    data."WELL_NO" as well_name,
     data."CHAN_LOC_SURFACE_LATI" as well_location_surface_latitude,
     data."CHAN_LOC_SURFACE_NAME" as well_location_surface_longitude,
     data."CHAN_LOC_SUB_SURFACE_LATI" as well_location_sub_surface_latitude,
