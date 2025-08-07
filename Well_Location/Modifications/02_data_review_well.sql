@@ -25,7 +25,7 @@ SELECT
         ELSE NULL
     END AS well_type,
     'Review' AS task_type,
-    data."WELL_TYPE_NAME" as well_name,
+    data."WELL_NO" as well_name,
     data."REW_LOC_SURFACE_LATI" as well_location_surface_latitude,
     data."REW_LOC_SURFACE" as well_location_surface_longitude,
     data."REW_LOC_SUB_SURFACE_LATI" as well_location_sub_surface_latitude,
