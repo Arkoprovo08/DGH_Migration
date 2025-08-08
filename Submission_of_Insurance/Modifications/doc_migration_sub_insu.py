@@ -4,12 +4,10 @@ import psycopg2
 import requests
 from datetime import datetime
 
-# === Redirect stdout to log file ===
 log_file = "migration_output.txt"
 sys.stdout = open(log_file, "w", encoding="utf-8")
 sys.stderr = sys.stdout
 
-# === PostgreSQL DB Config ===
 POSTGRES_CONN = psycopg2.connect(
     host="13.127.174.112",
     port=5432,
@@ -19,11 +17,9 @@ POSTGRES_CONN = psycopg2.connect(
 )
 postgres_cursor = POSTGRES_CONN.cursor()
 
-# === API Config ===
 API_URL = "http://k8s-ingressn-ingressn-1628ed6eec-bd2bc8d22bd4aed8.elb.ap-south-1.amazonaws.com/docs/documentManagement/uploadMultipleDocument"
 FILES_DIR = r"C:\Users\Administrator.DGH\Desktop\dgh\Files\CMS\Uploads"
 
-# === Utility ===
 def get_financial_year(created_on):
     if isinstance(created_on, str):
         created_on = datetime.strptime(created_on, "%Y-%m-%d %H:%M:%S.%f")
