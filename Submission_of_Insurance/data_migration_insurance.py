@@ -24,12 +24,20 @@ def migrate_insurance_indemnity():
         # 3️⃣ Fetch rows to migrate
         src_cursor.execute("""
             SELECT 
-                REFID, CONTRACTNAME, BLOCKNAME, DOS_CONTRACT, BLOCKCATEGORY,
-                REF_TOPSC_ARTICALNO, NAME_OF_INSURANCE_COMPANY, SUM_INSURED_USD,
-                SUM_INSURED, ASS_VAL_COVERED, TERM_OF_INSURANCE, TERM_OF_INSURANCE_TO,
-                NAME_AUTH_SIG_CONTRA, DESIGNATION, CREATED_BY, CREATED_ON
-            FROM FRAMEWORK01.FORM_SUB_INSURANCE_INDEMNITY
-            WHERE STATUS = '1'
+                s."REFID", s."CONTRACTNAME", s."BLOCKNAME", s."DOS_CONTRACT", s."BLOCKCATEGORY",
+                s."REF_TOPSC_ARTICALNO", s."NAME_OF_INSURANCE_COMPANY", s."SUM_INSURED_USD",
+                s."SUM_INSURED", s."ASS_VAL_COVERED", s."TERM_OF_INSURANCE", s."TERM_OF_INSURANCE_TO",
+                s."NAME_AUTH_SIG_CONTRA", s."DESIGNATION", s."CREATED_BY", s."CREATED_ON",
+                fc.comment_data AS remarks
+            FROM dgh_staging.FORM_SUB_INSURANCE_INDEMNITY s
+            join dgh_staging.frm_workitem_master_new w on w.ref_id = s."REFID" 
+            LEFT JOIN LATERAL (
+                SELECT comment_data
+                FROM dgh_staging.frm_comments
+                WHERE comment_id = s."COMMENTID"
+                LIMIT 1
+            ) fc ON TRUE
+            WHERE s."STATUS" = '1';
         """)
 
         rows = src_cursor.fetchall()
@@ -40,10 +48,9 @@ def migrate_insurance_indemnity():
                 refid, contractor_name, block_name, date_of_contract_signature, block_category,
                 ref_psc_article_no, insurance_company_name, sum_insured_usd,
                 sum_insured_inr, asset_value_covered_in_usd, insurance_from, insurance_to,
-                name_of_authorised_signatory, designation, source_created_by, creation_date
+                name_of_authorised_signatory, designation, source_created_by, creation_date, remarks
             ) = row
 
-            # 4️⃣ Resolve actual user_id — fallback to NULL if not found
             tgt_cursor.execute("""
                 SELECT user_id 
                 FROM user_profile.m_user_master 
@@ -55,7 +62,6 @@ def migrate_insurance_indemnity():
             if resolved_user_id is None:
                 print(f"⚠️ No user found for CREATED_BY = {source_created_by} ➜ inserting NULL for created_by")
 
-            # 5️⃣ Insert into destination table
             insert_sql = """
                 INSERT INTO financial_mgmt.t_submission_of_insurance_and_indemnity
                 (
@@ -79,7 +85,8 @@ def migrate_insurance_indemnity():
                     current_status,
                     process_id,
                     declaration_checkbox,
-                    is_migrated
+                    is_migrated,
+                    remarks
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
@@ -105,7 +112,8 @@ def migrate_insurance_indemnity():
                 'DRAFT',       # current_status
                 23,            # process_id
                 '{"acceptTerm1": true}',          # declaration_checkbox
-                1              # is_migrated
+                1,              # is_migrated
+                remarks
             )
 
             tgt_cursor.execute(insert_sql, insert_values)
