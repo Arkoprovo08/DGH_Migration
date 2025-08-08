@@ -1,6 +1,5 @@
 import os
 import sys
-import oracledb
 import psycopg2
 import requests
 from datetime import datetime
@@ -9,14 +8,6 @@ from datetime import datetime
 log_file = "migration_output.txt"
 sys.stdout = open(log_file, "w", encoding="utf-8")
 sys.stderr = sys.stdout
-
-# === Oracle DB Config ===
-ORCL_USER = "sys"
-ORCL_PASSWORD = "Dgh12345"
-ORCL_HOST = "192.168.0.133"
-ORCL_PORT = 1521
-ORCL_SID = "ORCL"
-ORCL_DSN = oracledb.makedsn(ORCL_HOST, ORCL_PORT, sid=ORCL_SID)
 
 # === PostgreSQL DB Config ===
 POSTGRES_CONN = psycopg2.connect(
@@ -39,9 +30,17 @@ def get_financial_year(created_on):
     year = created_on.year
     return f"{year}-{year + 1}" if created_on.month > 3 else f"{year - 1}-{year}"
 
-def process_documents(cursor, query, label, label_id):
-    cursor.execute(query)
-    rows = cursor.fetchall()
+def log_document_status(doc_name, status, doc_type, refid):
+    postgres_cursor.execute("""
+        INSERT INTO global_master.t_document_migration_status_details 
+        (document_name, document_migration_status, doc_type_name, refid)
+        VALUES (%s, %s, %s, %s)
+    """, (doc_name, status, doc_type, refid))
+    POSTGRES_CONN.commit()
+
+def process_documents(query, label, label_id):
+    postgres_cursor.execute(query)
+    rows = postgres_cursor.fetchall()
 
     for refid, file_name, regime, block, created_on, file_id in rows:
         file_path = os.path.join(FILES_DIR, file_name)
@@ -51,6 +50,7 @@ def process_documents(cursor, query, label, label_id):
 
         if not os.path.exists(file_path):
             print(f"❌ File not found: {file_path}")
+            log_document_status(file_name, "File Not Found", label, refid)
             continue
 
         files = {'files': open(file_path, 'rb')}
@@ -81,81 +81,69 @@ def process_documents(cursor, query, label, label_id):
             if logical_doc_id:
                 print(f"✅ Uploaded: {file_name} ➜ docId: {logical_doc_id}")
 
-                # ✅ Update PostgreSQL table
-                pg_update = """
+                postgres_cursor.execute("""
                     UPDATE dgh_staging.CMS_FILES
                     SET LOGICAL_DOC_ID = %s, LABEL_ID = %s
                     WHERE FILE_ID = %s
-                """
-                postgres_cursor.execute(pg_update, (logical_doc_id, label_id, file_id))
+                """, (logical_doc_id, label_id, file_id))
                 POSTGRES_CONN.commit()
+
+                log_document_status(file_name, "Uploaded", label, refid)
             else:
                 print(f"⚠️ No docId found for {file_name} in responseObject")
+                log_document_status(file_name, "Upload Failed", label, refid)
 
         except Exception as upload_err:
             print(f"❌ Upload failed for {file_name}: {upload_err}")
+            log_document_status(file_name, "Upload Failed", label, refid)
 
 try:
-    # === Connect to Oracle DB ===
-    oracle_conn = oracledb.connect(
-        user=ORCL_USER,
-        password=ORCL_PASSWORD,
-        dsn=ORCL_DSN,
-        mode=oracledb.SYSDBA
-    )
-    oracle_cursor = oracle_conn.cursor()
-    print("✅ Connected to Oracle database.")
+    print("✅ Connected to PostgreSQL database.")
 
     # === Signature/ Digital signature ===
     query_scope = """
         SELECT faao.REFID,cf.FILE_NAME,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cf.FILE_ID
-        FROM FRAMEWORK01.FORM_PROGRESS_REPORT faao
-        JOIN FRAMEWORK01.CMS_MASTER_FILEREF cmf ON faao.SIG_DIGITAL_SIG = cmf.FILEREF
-        JOIN FRAMEWORK01.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
-        JOIN FRAMEWORK01.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-        WHERE cmf.ACTIVE = 1
+        FROM dgh_staging.FORM_PROGRESS_REPORT faao
+        JOIN dgh_staging.CMS_MASTER_FILEREF cmf ON faao.SIG_DIGITAL_SIG = cmf.FILEREF
+        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
+        JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
+        WHERE cmf.ACTIVE = '1'
     """
-    process_documents(oracle_cursor, query_scope, "Signature/ Digital signature", 254)
+    process_documents(query_scope, "Signature/ Digital signature", 254)
 
     # === MCR ===
     query_mc = """
-		SELECT faao.REFID,cf.FILE_NAME,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cf.FILE_ID
-        FROM FRAMEWORK01.FORM_PROGRESS_REPORT faao
-        JOIN FRAMEWORK01.CMS_MASTER_FILEREF cmf ON faao.UPLOAD_MCR = cmf.FILEREF
-        JOIN FRAMEWORK01.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
-        JOIN FRAMEWORK01.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-        WHERE cmf.ACTIVE = 1        
+        SELECT faao.REFID,cf.FILE_NAME,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cf.FILE_ID
+        FROM dgh_staging.FORM_PROGRESS_REPORT faao
+        JOIN dgh_staging.CMS_MASTER_FILEREF cmf ON faao.UPLOAD_MCR = cmf.FILEREF
+        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
+        JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
+        WHERE cmf.ACTIVE = '1'
     """
-    process_documents(oracle_cursor, query_mc, "Upload MCR", 118)
+    process_documents(query_mc, "Upload MCR", 118)
 
     # === GOIPP ===
-    query_ocr_no = """
-		SELECT faao.REFID,cf.FILE_NAME,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cf.FILE_ID
-        FROM FRAMEWORK01.FORM_PROGRESS_REPORT faao
-        JOIN FRAMEWORK01.CMS_MASTER_FILEREF cmf ON faao.REVENUE_GOIPP = cmf.FILEREF
-        JOIN FRAMEWORK01.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
-        JOIN FRAMEWORK01.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-        WHERE cmf.ACTIVE = 1        
+    query_goipp = """
+        SELECT faao.REFID,cf.FILE_NAME,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cf.FILE_ID
+        FROM dgh_staging.FORM_PROGRESS_REPORT faao
+        JOIN dgh_staging.CMS_MASTER_FILEREF cmf ON faao.REVENUE_GOIPP = cmf.FILEREF
+        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
+        JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
+        WHERE cmf.ACTIVE = '1'
     """
-    process_documents(oracle_cursor, query_ocr_no, "Upload Revenue and GOIPP computed and paid (if applicable)", 196)
+    process_documents(query_goipp, "Upload Revenue and GOIPP computed and paid (if applicable)", 196)
 
     # === Additional Documents ===
     query_additional = """
         SELECT FAAO.REFID ,CF.FILE_NAME ,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cfr.FILE_ID
-        FROM FRAMEWORK01.FORM_PROGRESS_REPORT faao 
-        JOIN FRAMEWORK01.CMS_FILE_REF cfr 
-        ON CFR.REF_ID = FAAO.FILEREF
-        JOIN FRAMEWORK01.CMS_FILES cf 
-        ON CFR.FILE_ID = CF.FILE_ID
+        FROM dgh_staging.FORM_PROGRESS_REPORT faao 
+        JOIN dgh_staging.CMS_FILE_REF cfr ON CFR.REF_ID = FAAO.FILEREF
+        JOIN dgh_staging.CMS_FILES cf ON CFR.FILE_ID = CF.FILE_ID
         WHERE CFR.IS_ACTIVE = 1
     """
-    process_documents(oracle_cursor, query_additional, "Additional File, If Any", 197)
+    process_documents(query_additional, "Additional File, If Any", 197)
 
     print("✅ All files processed.")
-
-    oracle_cursor.close()
-    oracle_conn.close()
-    print("✅ Oracle connection closed.")
 
     postgres_cursor.close()
     POSTGRES_CONN.close()
