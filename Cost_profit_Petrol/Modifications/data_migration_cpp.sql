@@ -46,10 +46,10 @@ SELECT
 	    WHEN UPPER(f."PROFIT_PETROLEUM") = 'YES' THEN 'Yes'
 	    ELSE f."PROFIT_PETROLEUM"
 	end,
-    f."PETROLEUM_DATE",
+    f."PETROLEUM_DATE"::date,
     f."PETROLEUM_AMOUNT",
     f."PETROLEUM_UTR",
-    f."FROM_DATE_INTEREST",
+    f."FROM_DATE_INTEREST"::date,
     f."AMOUNT_INTEREST",
     f."UTR",
     CASE 
@@ -64,9 +64,9 @@ SELECT
     f."DESIGNATION",
     COALESCE(um.user_id, 5),
     f."CREATED_ON",
-    f."IS_ACTIVE",
-    f."TO_DATE_INTEREST",
-    f."DATE_INTEREST",
+    1,
+    f."TO_DATE_INTEREST"::date,
+    f."DATE_INTEREST"::date,
     f."DOS_CONTRACT",
     f."BID_ROUND",
     1,
