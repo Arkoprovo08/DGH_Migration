@@ -33,12 +33,17 @@ SELECT
     f."REFID",
     f."BLOCKCATEGORY",
     f."BLOCKNAME",
-    regexp_replace(
-	  f."CONSORTIUM",
-	  '([^,]+)\((\d+)\)', 
-	  '\1<<\2<<0',
-	  'g'
-	) AS consortium_transformed,
+	  CASE
+	    WHEN "CONSORTIUM" NOT LIKE '%,%' AND "CONSORTIUM" NOT LIKE '%(%'
+	      THEN "CONSORTIUM" || '>>100>>0'
+	    ELSE (
+	      SELECT string_agg(
+	        trim(regexp_replace(x, '^(.+)\((\d+)\)$', '\1>>\2>>0')),
+	        ', '
+	      )
+	      FROM unnest(string_to_array("CONSORTIUM", ',')) AS x
+	    )
+	  END AS consortium_transformed,
     f."DATE_EFFECTIVE",
     CASE 
 	    WHEN f."PROFIT_PETROLEUM" IS NULL OR f."PROFIT_PETROLEUM" = '0' THEN NULL
