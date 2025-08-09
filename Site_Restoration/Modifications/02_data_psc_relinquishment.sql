@@ -18,4 +18,4 @@ SELECT
 FROM dgh_staging.form_site_restoration_field fsf
 JOIN site_restoration.t_site_restoration_abandonment_details tgt 
     ON tgt.site_restoration_abandonment_application_number = fsf."REFID"
-WHERE fsf."STATUS" = 1;
+WHERE fsf."STATUS" = 1 and fsf."IS_ACTIVE" = '1';
