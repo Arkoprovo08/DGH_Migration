@@ -23,16 +23,17 @@ def migrate_profit_petrol():
     try:
         # ✅ Fetch data from Oracle with comment text
         src_cursor.execute("""
-            SELECT 
-                f.REFID, f.BLOCKCATEGORY, f.BLOCKNAME, f.CONTRACTNAME, f.DATE_EFFECTIVE,
-                f.PROFIT_PETROLEUM, f.PETROLEUM_DATE, f.PETROLEUM_AMOUNT, f.PETROLEUM_UTR,
-                f.PROFIT_PETROLEUM_DEPOSITED, f.FROM_DATE_INTEREST, f.AMOUNT_INTEREST, f.UTR,
-                f.DOES_MC, f.COMPLIANCE_PSC, f.NAME_AUTH_SIG_CONTRA, f.DESIGNATION,
-                f.CREATED_BY, f.CREATED_ON, f.IS_ACTIVE, f.TO_DATE_INTEREST, f.DATE_INTEREST,
-                f.DOS_CONTRACT, f.BID_ROUND, c.COMMENT_DATA
-            FROM FRAMEWORK01.FORM_PROFIT_PETROLEUM f
-            LEFT JOIN FRAMEWORK01.FRM_COMMENTS c ON f.COMMENTID = c.COMMENT_ID
-            WHERE f.STATUS = '1'
+		    SELECT 
+                f."REFID", f."BLOCKCATEGORY", f."BLOCKNAME", f."CONTRACTNAME", f."DATE_EFFECTIVE",
+                f."PROFIT_PETROLEUM", f."PETROLEUM_DATE", f."PETROLEUM_AMOUNT", f."PETROLEUM_UTR",
+                f."PROFIT_PETROLEUM_DEPOSITED", f."FROM_DATE_INTEREST", f."AMOUNT_INTEREST", f."UTR",
+                f."DOES_MC", f."COMPLIANCE_PSC", f."NAME_AUTH_SIG_CONTRA", f."DESIGNATION",
+                f."CREATED_BY", f."CREATED_ON", f."IS_ACTIVE", f."TO_DATE_INTEREST", f."DATE_INTEREST",
+                f."DOS_CONTRACT", f."BID_ROUND", c.COMMENT_DATA
+            FROM dgh_staging.FORM_PROFIT_PETROLEUM f
+            JOIN dgh_staging.frm_workitem_master_new fw ON fw.ref_id = f."REFID" 
+            LEFT JOIN dgh_staging.FRM_COMMENTS c ON f."COMMENTID" = c.COMMENT_ID
+            WHERE f."STATUS" = '1'
         """)
         rows = src_cursor.fetchall()
         print(f"✅ Found {len(rows)} records to migrate.")
