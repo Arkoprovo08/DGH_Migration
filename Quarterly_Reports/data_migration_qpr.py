@@ -44,8 +44,7 @@ def migrate_header(cursor):
             ORDER BY comment_id, id  
         ) b ON a.commentid = b.comment_id
         JOIN dgh_staging.frm_workitem_master_new fwmn ON fwmn.ref_id = a.refid
-        WHERE a.STATUS = 1
-        AND a.refid = 'QPR-20230123120130';
+        WHERE a.STATUS = 1;
     """)
     rows = cursor.fetchall()
     print(f"📦 Migrating {len(rows)} QPR headers...")
@@ -95,7 +94,7 @@ def migrate_sections(cursor, refid_to_qprid):
                a.CREATED_BY, ACTIVE, LABEL
         FROM dgh_staging.FORM_PROGRESS_REPORT_SEC a
         JOIN dgh_staging.frm_workitem_master_new fwmn ON fwmn.ref_id = a.refid
-        WHERE STATUS = 1 and refid = 'QPR-20230123120130'
+        WHERE STATUS = 1;
     """)
     rows = cursor.fetchall()
     print(f"📦 Migrating {len(rows)} section records...")
