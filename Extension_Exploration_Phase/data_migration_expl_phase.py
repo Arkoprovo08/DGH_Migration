@@ -38,12 +38,13 @@ def migrate_extension_exploration_phase():
     try:
         # Step 1: Fetch main form data
         src_cursor.execute("""
-            SELECT REF_ID, CONTRACTNAME, BLOCKNAME, BLOCKCATEGORY, DOS_CONTRACT,
-                   BID_ROUND, DATE_EFFECTIVE, OCR_AVAIABLE, OCR_UNAVAIABLE_TXT,
-                   REF_TOPSC_ARTICALNO, NAME_AUTH_SIG_CONTRA, DESIGNATION,
-                   IS_ACTIVE, CREATED_BY, CREATED_ON,CONSORTIUM
-            FROM FRAMEWORK01.FORM_EXTENSION_EXPLO_PHASE
-            WHERE STATUS = '1'
+            SELECT "REF_ID", "CONTRACTNAME", "BLOCKNAME", "BLOCKCATEGORY", "DOS_CONTRACT",
+                   "BID_ROUND", "DATE_EFFECTIVE", "OCR_AVAIABLE", "OCR_UNAVAIABLE_TXT",
+                   "REF_TOPSC_ARTICALNO", "NAME_AUTH_SIG_CONTRA", "DESIGNATION",
+                   "IS_ACTIVE", "CREATED_BY", "CREATED_ON","CONSORTIUM"
+            FROM dgh_staging.FORM_EXTENSION_EXPLO_PHASE a
+            join dgh_staging.frm_workitem_master_new b on a."REF_ID" = b.ref_id
+            WHERE "STATUS" = '1'
         """)
         rows = src_cursor.fetchall()
         print(f"✅ Found {len(rows)} main records.")
@@ -58,9 +59,9 @@ def migrate_extension_exploration_phase():
 
             # Step 2: Fetch data fields
             src_cursor.execute("""
-                SELECT DATA_ID, DATA_VALUE
-                FROM FRAMEWORK01.FORM_EXTENSION_PHASE_DATA
-                WHERE REFID = :refid
+                SELECT "DATA_ID", "DATA_VALUE"
+                FROM dgh_staging.FORM_EXTENSION_PHASE_DATA
+                WHERE "REFID" = :refid
             """, {'refid': ref_id})
             data = dict(src_cursor.fetchall())
 
@@ -79,16 +80,39 @@ def migrate_extension_exploration_phase():
             insert_sql = """
                 INSERT INTO operator_contracts_agreements.t_extension_exploration_phase_details (
                     extension_exploration_phase_details_applications_number,
-                    process_id, contractor_name, block_name, block_category,
-                    dos_contract, awarded_under, effective_date, expiry_date,
-                    extension_availed_past, ocr_available, ocr_unaivalibility_text,
-                    psc_article_no, mwp_completed, extension_sought_mwp,
-                    additional_work_prog_mc, additional_work_prog_mc_justification,
-                    additional_work_prog_mc_article, data_exploration_activities_not_submitted_reason,
-                    ld_date_submitted, amt_of_ld_submitted_usd, cin_no,
-                    bank_ref_no, crn, name_auth_sig_contra, designation,
-                    is_active, created_by, creation_date, is_declared,
-                    declaration_checkbox, is_migrated, current_status,consortium
+                    process_id,
+                    contractor_name, 
+                    block_name, 
+                    block_category,
+                    dos_contract, 
+                    awarded_under, 
+                    effective_date, 
+                    expiry_date,
+                    extension_availed_past, 
+                    ocr_available, 
+                    ocr_unaivalibility_text,
+                    psc_article_no, 
+                    mwp_completed, 
+                    extension_sought_mwp,
+                    additional_work_prog_mc, 
+                    additional_work_prog_mc_justification, --hi
+                    additional_work_prog_mc_article, 
+                    data_exploration_activities_not_submitted_reason,
+                    ld_date_submitted, 
+                    amt_of_ld_submitted_usd, 
+                    cin_no,
+                    bank_ref_no, 
+                    crn, 
+                    name_auth_sig_contra, 
+                    designation,
+                    is_active, 
+                    created_by, 
+                    creation_date, 
+                    is_declared,
+                    declaration_checkbox, 
+                    is_migrated, 
+                    current_status,
+                    consortium
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
@@ -112,7 +136,7 @@ def migrate_extension_exploration_phase():
                 to_bool_flag(data.get('ddl_MWP_PSC')),
                 to_bool_flag(data.get('ddl_Extension_PSC')),
                 to_bool_flag(data.get('ddl_Additional_Work_PSC')),
-                data.get('txt_additional_MWP_PSC'),
+                data.get('txt_Justification'),
                 data.get('txt_clause_PSC'),
                 data.get('txt_Reason_data'),
                 parse_date(data.get('txt_Date_LD')),

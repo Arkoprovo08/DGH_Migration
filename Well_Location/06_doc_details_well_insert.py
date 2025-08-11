@@ -25,12 +25,21 @@ try:
         JOIN operator_contracts_agreements.t_well_location_header h 
             ON h.well_location_application_number = a."WEL_LOC_CHA_DEEP_ID"
         JOIN operator_contracts_agreements.t_well_location_well_details w 
-            ON w.well_name = a."WELL_NO"
+            ON w.well_name = a."WELL_NO" and  w.well_location_header_id = h.well_location_header_id
         JOIN dgh_staging.cms_file_ref cfr 
             ON cfr.ref_id IN (a."UPLOAD_OCR", a."WELL_TYPE_FILE")
         JOIN dgh_staging.cms_files cf 
             ON cf.file_id = cfr.file_id
         WHERE w.is_migrated = '1'
+        
+        union ALL
+        
+        SELECT a.refid ,cf.file_label ,cf.logical_doc_id ,cf.label_id, null as well_location_well_details_id ,b.well_location_header_id
+        from dgh_staging.form_wel_loc_cha_deep a 
+        join operator_contracts_agreements.t_well_location_header b on a.refid = b.well_location_application_number 
+        join dgh_staging.cms_file_ref cfr on cfr.ref_id = a.fileref  
+        join dgh_staging.cms_files cf on cf.file_id = cfr.file_id 
+        where b.is_migrated = 1
     """)
     
     rows = pg_cursor.fetchall()
