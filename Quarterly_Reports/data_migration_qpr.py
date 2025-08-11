@@ -71,7 +71,7 @@ def migrate_header(cursor):
                 exchange_rate_date, created_by, creation_date, name_of_authorised_signatory,
                 designation, remarks, is_goipp, process_id, is_active, is_migrated, current_status,declaration_checkbox
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1, 1, 1, 'DRAFT',{"acceptTerm1": true})
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1, 1, 1, 'DRAFT','{"acceptTerm1": true}')
             RETURNING quarterly_report_id
         """
         cursor.execute(insert_sql, (
