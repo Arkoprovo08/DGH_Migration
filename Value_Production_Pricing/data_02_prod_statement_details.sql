@@ -16,7 +16,8 @@ INSERT INTO financial_mgmt.t_production_statement_details (
     verification_contact_number,
     created_by,
     creation_date,
-    is_active
+    is_active,
+    is_migrated
 )
 SELECT
     vp.value_of_production_and_pricing_statement_details_id,
@@ -35,6 +36,7 @@ SELECT
     MAX(CASE WHEN fpd."LABEL_NO" = '27' THEN fpd."LABEL_VALUE" END) as verification_contact_number, -- verification_contact_number
     MAX(fpd."CREATED_BY"),
     MAX(fpd."CREATED_ON"),
+    1,
     1
 FROM
     dgh_staging.form_production_val_statement fps

@@ -4,7 +4,8 @@ INSERT INTO financial_mgmt.t_production_statement_field_header_details (
     no_of_days_operated,
     created_by,
     creation_date,
-    is_active
+    is_active,
+    is_migrated
 )
 SELECT
     tpsd.production_statement_details_id,
@@ -12,7 +13,8 @@ SELECT
     MAX(CASE WHEN fpd."LABEL_NO" = '9' THEN fpd."LABEL_VALUE"::INTEGER END) AS no_of_days_operated,
     tpsd.created_by,
     tpsd.creation_date,
-    1 AS is_active                         
+    1 AS is_active,
+    1 as is_migrated                         
 FROM
     dgh_staging.form_production_val_statement fps
 JOIN
