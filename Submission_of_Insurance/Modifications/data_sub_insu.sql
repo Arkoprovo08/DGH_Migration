@@ -22,7 +22,8 @@ INSERT INTO financial_mgmt.t_submission_of_insurance_and_indemnity
     declaration_checkbox,
     is_migrated,
     remarks,
-    is_declared
+    is_declared,
+    currency_type
 )
 SELECT 
     s."REFID", 
@@ -47,7 +48,8 @@ SELECT
     '{"acceptTerm1": true}',-- declaration_checkbox
     1,                      -- is_migrated
     fc.comment_data,
-    1
+    1,
+    'INR'
 FROM dgh_staging.FORM_SUB_INSURANCE_INDEMNITY s
 JOIN dgh_staging.frm_workitem_master_new w 
     ON w.ref_id = s."REFID"
