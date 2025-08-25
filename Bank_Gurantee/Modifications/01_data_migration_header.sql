@@ -14,6 +14,7 @@ INSERT INTO financial_mgmt.t_bank_gurantee_header (
     is_migrated,
     is_active,
     current_status,
+    is_declared,
     declaration_checkbox,
     nodal_update_details
 )
@@ -44,6 +45,7 @@ SELECT DISTINCT ON (fsbg."REFID")
         2,
         1,
         'DRAFT',
+        1,
         '{}',
         '{}'
 FROM 
