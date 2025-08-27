@@ -10,17 +10,17 @@ sys.stderr = sys.stdout
 
 # === PostgreSQL Connection ===
 POSTGRES_CONN = psycopg2.connect(
-    host="3.110.185.154",
+    host="13.127.174.112",
     port=5432,
     database="ims",
-    user="postgres",
-    password="P0$tgres@dgh"
+    user="imsadmin",
+    password="Dghims!2025"
 )
 postgres_cursor = POSTGRES_CONN.cursor()
 
 # === API Config ===
 API_URL = "http://k8s-ingressn-ingressn-1628ed6eec-bd2bc8d22bd4aed8.elb.ap-south-1.amazonaws.com/docs/documentManagement/uploadMultipleDocument"
-FILES_DIR = r"C:\Users\Administrator.DGH\Desktop\dgh\Files\CMS\Uploads"
+FILES_DIR = r"\\192.168.0.126\it\CMS\Uploads1"
 
 # === Utility Function ===
 def get_financial_year(created_on):
@@ -41,12 +41,12 @@ def process_label(label_value, label_text, label_id):
             fcdfc.block_name,
             fcdfc.creation_date,
             cf.FILE_ID
-        FROM dgh_staging.form_calibration_flow_sec faao
-        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = faao."LABEL_VALUE"
+        FROM dgh_staging.form_calibratio_flow faao
+        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = faao."{label_value}" 
         JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
         JOIN upstream_data_management.t_caliberation_flow_meters_witness_custody_details fcdfc
             ON faao."REFID" = fcdfc.caliberation_flow_meters_witness_custody_details_application_nu
-        WHERE faao."LABEL_TEXT" = '{label_value}' AND faao."STATUS" = '1'
+        WHERE faao."STATUS" = '1'
     """
     postgres_cursor.execute(query)
     rows = postgres_cursor.fetchall()
@@ -104,27 +104,10 @@ def process_label(label_value, label_text, label_id):
 
 # === Label Mapping ===
 labels = [
-    ("Brief_note_on_verification", 
-     "Brief note on verification procedures and process description with layouts and PFD and As built latest P&ID S", 
-     333),
-     
-    ("Identification_no_Tag_No", 
-     "Identification no/Tag No and location details of the measuring devices must be provided. Provide last calibration details with seal nos.", 
-     334),
-
-    ("Calibration_data_certificates_of_PT", 
-     "Identification no/Tag No and location details of the measuring devices. Calibration data & certificates of PT (Pressure Transmitters).", 
-     363),
-
-    ("Reports_of_Measurement", 
-     "Reports of Measurement of Petroleum exercise must be certified / validated by third party agency and DGH representative (If present) and counter signed by operator.", 
-     356)
-    #  ,
-    # ('','',),
-    # ('','',),
-    # ('','',),
-    # ('','',),
-    # ('','',),
+    ("MIN_OF_MEETING","Upload Minutes of Meeting (To be duly signed by operator, calibrator, buyer, third party validator (if present) and DGH representative (if present) other.",548),
+    ("SIG_WIT_CETI","Upload Signed Witness Certificate (should be on company's letter head with signatures of all parties present during the activity and with particulars of the activity) other",549),
+    ("CALI_VER_AGR_NOT_FILE","During the testing the contractor shall follow standard guidelines prescribed by respective internationally followed standards and best industry practices applicable to each methods of measurement for their calibration/verifications",478),
+    ("FILEREF","Upload additional documents",550)
 ]
 
 # === Process All Labels ===
