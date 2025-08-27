@@ -24,7 +24,8 @@ INSERT INTO financial_mgmt.t_bank_gurantee_details (
     creation_date,
     created_by,
     is_active,
-    migration_seq
+    migration_seq,
+    is_migrated
 )
 SELECT 
     fsbg."CONTRACTNAME"              AS contractor_name,
@@ -59,6 +60,7 @@ SELECT
     um."user_id"                    AS created_by,
     1                                AS is_active,
     "SEQ"							AS migration_seq
+    1 as is_migrated
 FROM dgh_staging."form_sub_bg_legal_renewal" fsbg
 JOIN financial_mgmt."t_bank_gurantee_header" hdr
     ON hdr."bank_gurantee_application_number" = fsbg."REFID"

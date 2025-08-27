@@ -108,34 +108,32 @@ try:
 
     # === Legal Opinion ===
     query_scope = """
-        SELECT faao.REFID,cf.FILE_NAME,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cf.FILE_ID
-        FROM FRAMEWORK01.FORM_SUB_BG_LEGAL_RENEWAL faao
-        JOIN FRAMEWORK01.CMS_MASTER_FILEREF cmf ON faao.UPLOAD_LEGAL_OPINION = cmf.FILEREF
-        JOIN FRAMEWORK01.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
-        JOIN FRAMEWORK01.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-        WHERE cmf.ACTIVE = 1
+        SELECT faao."REFID",cf.FILE_NAME,faao."BLOCKCATEGORY",faao."BLOCKNAME",faao."CREATED_ON",cf.FILE_ID
+        FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao
+        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = faao."UPLOAD_LEGAL_OPINION"
+        JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
+        where faao."STATUS" = '1'
+
     """
     process_documents(oracle_cursor, query_scope, "Upload Legal Opinion Document", 10)
 
     # === Upload BG ===
     query_ocr = """
-        SELECT faao.REFID,cf.FILE_NAME,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cf.FILE_ID
-        FROM FRAMEWORK01.FORM_SUB_BG_LEGAL_RENEWAL faao
-        JOIN FRAMEWORK01.CMS_MASTER_FILEREF cmf ON faao.UPLOAD_BG = cmf.FILEREF
-        JOIN FRAMEWORK01.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
-        JOIN FRAMEWORK01.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-        WHERE cmf.ACTIVE = 1
+        SELECT faao."REFID",cf.FILE_NAME,faao."BLOCKCATEGORY",faao."BLOCKNAME",faao."CREATED_ON",cf.FILE_ID
+        FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao
+        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = faao."UPLOAD_BG"
+        JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
+        where faao."STATUS" = '1'
     """
     process_documents(oracle_cursor, query_ocr, "Upload Bank Guarantee (The original copy to be submitted to DGH within 7 working days from date of uploading)", 11)
 
     # === Upload Previous BG ===
     query_mc = """
-        SELECT faao.REFID,cf.FILE_NAME,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cf.FILE_ID
-        FROM FRAMEWORK01.FORM_SUB_BG_LEGAL_RENEWAL faao
-        JOIN FRAMEWORK01.CMS_MASTER_FILEREF cmf ON faao.PREV_BG_LINKED_DET = cmf.FILEREF
-        JOIN FRAMEWORK01.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
-        JOIN FRAMEWORK01.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-        WHERE cmf.ACTIVE = 1
+        SELECT faao."REFID",cf.FILE_NAME,faao."BLOCKCATEGORY",faao."BLOCKNAME",faao."CREATED_ON",cf.FILE_ID
+        FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao
+        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = faao."PREV_BG_LINKED_DET"
+        JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
+        where faao."STATUS" = '1'
     """
     process_documents(oracle_cursor, query_mc, "Upload Previous BG Document", 9)
 
