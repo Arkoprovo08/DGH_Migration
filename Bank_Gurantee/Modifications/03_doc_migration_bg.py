@@ -1,36 +1,21 @@
 import os
-import sys
-import oracledb
 import psycopg2
 import requests
 from datetime import datetime
 
-# === Redirect stdout to log file ===
-log_file = "migration_output.txt"
-sys.stdout = open(log_file, "w", encoding="utf-8")
-sys.stderr = sys.stdout
-
-# === Oracle DB Config ===
-ORCL_USER = "sys"
-ORCL_PASSWORD = "Dgh12345"
-ORCL_HOST = "192.168.0.133"
-ORCL_PORT = 1521
-ORCL_SID = "ORCL"
-ORCL_DSN = oracledb.makedsn(ORCL_HOST, ORCL_PORT, sid=ORCL_SID)
-
 # === PostgreSQL DB Config ===
 POSTGRES_CONN = psycopg2.connect(
-    host="3.110.185.154",
+    host="13.127.174.112",
     port=5432,
     database="ims",
-    user="postgres",
-    password="P0$tgres@dgh"
+    user="imsadmin",
+    password="Dghims!2025"
 )
 postgres_cursor = POSTGRES_CONN.cursor()
 
 # === API Config ===
 API_URL = "http://k8s-ingressn-ingressn-1628ed6eec-bd2bc8d22bd4aed8.elb.ap-south-1.amazonaws.com/docs/documentManagement/uploadMultipleDocument"
-FILES_DIR = r"C:\Users\Administrator.DGH\Desktop\dgh\Files\CMS\Uploads"
+FILES_DIR = r"\\192.168.0.126\it\CMS\Uploads1"
 
 # === Utility ===
 def get_financial_year(created_on):
@@ -96,15 +81,7 @@ def process_documents(cursor, query, label, label_id):
             print(f"❌ Upload failed for {file_name}: {upload_err}")
 
 try:
-    # === Connect to Oracle DB ===
-    oracle_conn = oracledb.connect(
-        user=ORCL_USER,
-        password=ORCL_PASSWORD,
-        dsn=ORCL_DSN,
-        mode=oracledb.SYSDBA
-    )
-    oracle_cursor = oracle_conn.cursor()
-    print("✅ Connected to Oracle database.")
+    print("✅ Connected to PostgreSQL database.")
 
     # === Legal Opinion ===
     query_scope = """
@@ -112,10 +89,9 @@ try:
         FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao
         JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = faao."UPLOAD_LEGAL_OPINION"
         JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-        where faao."STATUS" = '1'
-
+        WHERE faao."STATUS" = '1'
     """
-    process_documents(oracle_cursor, query_scope, "Upload Legal Opinion Document", 10)
+    process_documents(postgres_cursor, query_scope, "Upload Legal Opinion Document", 10)
 
     # === Upload BG ===
     query_ocr = """
@@ -123,9 +99,9 @@ try:
         FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao
         JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = faao."UPLOAD_BG"
         JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-        where faao."STATUS" = '1'
+        WHERE faao."STATUS" = '1'
     """
-    process_documents(oracle_cursor, query_ocr, "Upload Bank Guarantee (The original copy to be submitted to DGH within 7 working days from date of uploading)", 11)
+    process_documents(postgres_cursor, query_ocr, "Upload Bank Guarantee (The original copy to be submitted to DGH within 7 working days from date of uploading)", 11)
 
     # === Upload Previous BG ===
     query_mc = """
@@ -133,47 +109,37 @@ try:
         FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao
         JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = faao."PREV_BG_LINKED_DET"
         JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-        where faao."STATUS" = '1'
+        WHERE faao."STATUS" = '1'
     """
-    process_documents(oracle_cursor, query_mc, "Upload Previous BG Document", 9)
+    process_documents(postgres_cursor, query_mc, "Upload Previous BG Document", 9)
 
     # === Signature Digital Signature ===
     query_ocr_no = """
-        SELECT faao.REFID,cf.FILE_NAME,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cf.FILE_ID
-        FROM FRAMEWORK01.FORM_SUB_BG_LEGAL_RENEWAL faao
-        JOIN FRAMEWORK01.CMS_MASTER_FILEREF cmf ON faao.SIG_DIGITAL_SIG = cmf.FILEREF
-        JOIN FRAMEWORK01.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
-        JOIN FRAMEWORK01.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-        WHERE cmf.ACTIVE = 1
+        SELECT faao."REFID",cf.FILE_NAME,faao."BLOCKCATEGORY",faao."BLOCKNAME",faao."CREATED_ON",cf.FILE_ID
+        FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao
+        JOIN dgh_staging.CMS_MASTER_FILEREF cmf ON faao."SIG_DIGITAL_SIG" = cmf.FILEREF
+        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
+        JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
+        WHERE cmf.ACTIVE = '1' 
     """
-    process_documents(oracle_cursor, query_ocr_no, "Signature/ Digital signature", 250)
+    process_documents(postgres_cursor, query_ocr_no, "Signature/ Digital signature", 250)
 
     # === Additional Documents ===
     query_additional = """
-        SELECT FAAO.REFID ,CF.FILE_NAME ,faao.BLOCKCATEGORY,faao.BLOCKNAME,faao.CREATED_ON,cfr.FILE_ID
-        FROM FRAMEWORK01.FORM_SUB_BG_LEGAL_RENEWAL faao 
-        JOIN FRAMEWORK01.CMS_FILE_REF cfr 
-        ON CFR.REF_ID = FAAO.FILEREF
-        JOIN FRAMEWORK01.CMS_FILES cf 
-        ON CFR.FILE_ID = CF.FILE_ID
-        WHERE CFR.IS_ACTIVE = 1
+        SELECT faao."REFID",cf.FILE_NAME,faao."BLOCKCATEGORY",faao."BLOCKNAME",faao."CREATED_ON",cfr.FILE_ID
+        FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao 
+        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = faao."FILEREF"
+        JOIN dgh_staging.CMS_FILES cf ON cfr.FILE_ID = cf.FILE_ID
+        WHERE cfr.IS_ACTIVE = 1 
     """
-    process_documents(oracle_cursor, query_additional, "Additional File, If Any", 12)
+    process_documents(postgres_cursor, query_additional, "Additional File, If Any", 12)
 
     print("✅ All files processed.")
 
     # === Cleanup ===
-    oracle_cursor.close()
-    oracle_conn.close()
-    print("✅ Oracle connection closed.")
-
     postgres_cursor.close()
     POSTGRES_CONN.close()
     print("✅ PostgreSQL connection closed.")
 
 except Exception as err:
     print(f"❌ Error occurred: {err}")
-
-# === Restore terminal output (optional) ===
-sys.stdout.close()
-sys.stdout = sys.__stdout__

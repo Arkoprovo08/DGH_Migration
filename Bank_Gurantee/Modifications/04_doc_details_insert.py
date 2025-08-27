@@ -15,50 +15,43 @@ try:
 
     # Fetch document metadata related to Format C
     pg_cursor.execute("""
-select distinct faao."REFID",cf.file_label,cf.logical_doc_id,cf.label_id,
-       tbgd.bank_gurantee_details_id, null::int as bank_gurantee_header_id
-FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao
-JOIN dgh_staging.CMS_MASTER_FILEREF cmf ON faao."UPLOAD_LEGAL_OPINION" = cmf.FILEREF
-JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
-JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-join financial_mgmt.t_bank_gurantee_header taad on taad.bank_gurantee_application_number = faao."REFID"
-join financial_mgmt.t_bank_gurantee_details tbgd on tbgd.bank_gurantee_header_id = taad.bank_gurantee_header_id
-WHERE cmf.ACTIVE = '1' and faao."STATUS" = 1 and cmf.active = '1' and tbgd.migration_seq = faao."SEQ"
+        SELECT faao."REFID",cf.file_label,cf.logical_doc_id,cf.label_id,tbgd.bank_gurantee_details_id, null::int as bank_gurantee_header_id
+        FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao
+        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = faao."UPLOAD_LEGAL_OPINION"
+        JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
+        join financial_mgmt.t_bank_gurantee_header taad on taad.bank_gurantee_application_number = faao."REFID"
+		join financial_mgmt.t_bank_gurantee_details tbgd on tbgd.bank_gurantee_header_id = taad.bank_gurantee_header_id
+		WHERE faao."STATUS" = 1 and tbgd.migration_seq = faao."SEQ"         
 
-union all
+        union all
+        
+        SELECT faao."REFID",cf.file_label,cf.logical_doc_id,cf.label_id,tbgd.bank_gurantee_details_id, null::int as bank_gurantee_header_id
+        FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao
+        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = faao."UPLOAD_BG"
+        JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
+        join financial_mgmt.t_bank_gurantee_header taad on taad.bank_gurantee_application_number = faao."REFID"
+		join financial_mgmt.t_bank_gurantee_details tbgd on tbgd.bank_gurantee_header_id = taad.bank_gurantee_header_id
+		WHERE faao."STATUS" = 1 and tbgd.migration_seq = faao."SEQ"
 
-select distinct faao."REFID",cf.file_label,cf.logical_doc_id,cf.label_id,
-       tbgd.bank_gurantee_details_id, null::int as bank_gurantee_header_id
-FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao
-JOIN dgh_staging.CMS_MASTER_FILEREF cmf ON faao."UPLOAD_BG" = cmf.FILEREF
-JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
-JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-join financial_mgmt.t_bank_gurantee_header taad on taad.bank_gurantee_application_number = faao."REFID"
-join financial_mgmt.t_bank_gurantee_details tbgd on tbgd.bank_gurantee_header_id = taad.bank_gurantee_header_id
-WHERE cmf.ACTIVE = '1' and faao."STATUS" = 1 and cmf.active = '1' and tbgd.migration_seq = faao."SEQ"
+        union all
 
-union all
+        SELECT faao."REFID",cf.file_label,cf.logical_doc_id,cf.label_id,tbgd.bank_gurantee_details_id, null::int as bank_gurantee_header_id
+        FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao
+        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = faao."PREV_BG_LINKED_DET"
+        JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
+        join financial_mgmt.t_bank_gurantee_header taad on taad.bank_gurantee_application_number = faao."REFID"
+		join financial_mgmt.t_bank_gurantee_details tbgd on tbgd.bank_gurantee_header_id = taad.bank_gurantee_header_id
+		WHERE faao."STATUS" = 1 and tbgd.migration_seq = faao."SEQ"
 
-select distinct faao."REFID",cf.file_label,cf.logical_doc_id,cf.label_id,
-       tbgd.bank_gurantee_details_id, null::int as bank_gurantee_header_id
-FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao
-JOIN dgh_staging.CMS_MASTER_FILEREF cmf ON faao."PREV_BG_LINKED_DET" = cmf.FILEREF
-JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.FILEREF
-JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-join financial_mgmt.t_bank_gurantee_header taad on taad.bank_gurantee_application_number = faao."REFID"
-join financial_mgmt.t_bank_gurantee_details tbgd on tbgd.bank_gurantee_header_id = taad.bank_gurantee_header_id
-WHERE cmf.ACTIVE = '1' and faao."STATUS" = 1 and cmf.active = '1' and tbgd.migration_seq = faao."SEQ"
+        union all
 
-union all
-
-SELECT FAAO."REFID" ,CF.file_label , cf.logical_doc_id, cf.label_id,
-       null::int as bank_gurantee_details_id, taad.bank_gurantee_header_id
-FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao 
-JOIN dgh_staging.CMS_FILE_REF cfr ON CFR.REF_ID = FAAO."FILEREF"
-JOIN dgh_staging.CMS_FILES cf ON CFR.FILE_ID = CF.FILE_ID
-join financial_mgmt.t_bank_gurantee_header taad on taad.bank_gurantee_application_number = faao."REFID"
-WHERE CFR.IS_ACTIVE = 1;
-
+        SELECT FAAO."REFID" ,CF.file_label , cf.logical_doc_id, cf.label_id,
+            null::int as bank_gurantee_details_id, taad.bank_gurantee_header_id
+        FROM dgh_staging.FORM_SUB_BG_LEGAL_RENEWAL faao 
+        JOIN dgh_staging.CMS_FILE_REF cfr ON CFR.REF_ID = FAAO."FILEREF"
+        JOIN dgh_staging.CMS_FILES cf ON CFR.FILE_ID = CF.FILE_ID
+        join financial_mgmt.t_bank_gurantee_header taad on taad.bank_gurantee_application_number = faao."REFID"
+        WHERE CFR.IS_ACTIVE = 1;
     """)
 
     rows = pg_cursor.fetchall()
