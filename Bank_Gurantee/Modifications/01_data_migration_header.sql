@@ -16,7 +16,8 @@ INSERT INTO financial_mgmt.t_bank_gurantee_header (
     current_status,
     is_declared,
     declaration_checkbox,
-    nodal_update_details
+    nodal_update_details,
+    is_declared
 )
 SELECT DISTINCT ON (fsbg."REFID")
         fsbg."REFID", 
@@ -47,7 +48,8 @@ SELECT DISTINCT ON (fsbg."REFID")
         'DRAFT',
         1,
         '{}',
-        '{}'
+        '{}',
+        1
 FROM 
         dgh_staging.form_sub_bg_legal_renewal fsbg
 LEFT JOIN 
