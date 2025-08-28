@@ -31,11 +31,10 @@ try:
             ON cfr.ref_id = fc.label_input
         JOIN dgh_staging.cms_files cf 
             ON cf.file_id = cfr.file_id 
-        WHERE fc.label_value IN (
+        WHERE fc.active = '1' and fc.label_value IN (
             SELECT DISTINCT label_value
             FROM dgh_staging.form_commerical_dis_format_c2 fcfs 
-            WHERE LABEL_TYPE = 'upload'
-        )
+            WHERE LABEL_TYPE = 'upload')            
     """)
 
     rows = pg_cursor.fetchall()
