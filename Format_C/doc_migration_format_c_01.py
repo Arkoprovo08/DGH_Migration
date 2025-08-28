@@ -154,6 +154,17 @@ queries = [
         """
     ),
     (
+        "Upload the copy which was submitted to DGH and Government regarding the information of discovery as mentioned in option B", 60,
+        """
+        SELECT faao.REFID, cf.FILE_NAME, faao.BLOCKCATEGORY, faao.BLOCKNAME, faao.CREATED_ON, cf.FILE_ID
+        FROM dgh_staging.form_commerical_dis_format_c faao
+        JOIN dgh_staging.CMS_MASTER_FILEREF cmf ON faao.ava_with_contractor_fileref  = cmf.fileref 
+        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.fileref 
+        JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
+        WHERE cmf.ACTIVE = '1'
+        """
+    ),
+    (
     "Upload Additional Documents", 106,
     """
     SELECT faao.REFID, cf.FILE_NAME, faao.BLOCKCATEGORY, faao.BLOCKNAME, faao.CREATED_ON, cfr.FILE_ID
