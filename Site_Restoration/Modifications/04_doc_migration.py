@@ -105,7 +105,8 @@ def process_label(label_value, label_text, label_id):
 labels = [
     ("Btn_OISD", "OISD/DGMS Approval", 178),
     ("Btn_OC_approved", "Abandonment Plan / Site restoration", 179),
-    ("Btn_Third_Party", "Third Party Report", 180)
+    ("Btn_Third_Party", "Third Party Report", 180),
+    ("Btn_addition_file","Upload additional documents", 184)
 ]
 
 for label_value, label_text, label_id in labels:

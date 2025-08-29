@@ -25,7 +25,7 @@ try:
         JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = FAAO."DATA_VALUE" 
         JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
         JOIN site_restoration.t_site_restoration_abandonment_details fcdfc ON faao."REFID" = fcdfc.site_restoration_abandonment_application_number
-        WHERE faao."DATA_ID" in ('Btn_OISD','Btn_Third_Party','Btn_OC_approved') AND faao."STATUS" = 1
+        WHERE faao."DATA_ID" in ('Btn_OISD','Btn_Third_Party','Btn_OC_approved','Btn_addition_file') AND faao."STATUS" = 1 and faao."IS_ACTIVE" = 1
     """)
 
     rows = pg_cursor.fetchall()
