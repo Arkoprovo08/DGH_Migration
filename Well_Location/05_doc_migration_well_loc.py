@@ -132,25 +132,45 @@ queries = [
     (
         "Upload OCR", 200,
         """
-        SELECT faao."WEL_LOC_CHA_DEEP_ID", cf.FILE_NAME, fwlcd.blockcategory , fwlcd.blockname , fwlcd.created_on , cf.FILE_ID
-        FROM dgh_staging.form_wel_loc_cha_de_data faao
-        JOIN dgh_staging.CMS_MASTER_FILEREF cmf ON faao."UPLOAD_OCR" = cmf.fileref
-        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.fileref
-        JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-        JOIN dgh_staging.form_wel_loc_cha_deep fwlcd ON fwlcd.refid = faao."WEL_LOC_CHA_DEEP_ID"
-        WHERE cmf.ACTIVE = '1' AND fwlcd.status = '1' AND faao."ACTIVE" = '17'
+        select
+        	   a."WEL_LOC_CHA_DEEP_ID",
+               cf.FILE_NAME,
+               h.block_category,
+               h.block_name,
+               h.creation_date,
+               cf.file_id
+        FROM dgh_staging.form_wel_loc_cha_de_data a
+        JOIN operator_contracts_agreements.t_well_location_header h 
+            ON h.well_location_application_number = a."WEL_LOC_CHA_DEEP_ID"
+        JOIN operator_contracts_agreements.t_well_location_well_details w 
+            ON w.well_name = a."WELL_NO" and  w.well_location_header_id = h.well_location_header_id
+        JOIN dgh_staging.cms_file_ref cfr 
+            ON cfr.ref_id = a."UPLOAD_OCR"
+        JOIN dgh_staging.cms_files cf 
+            ON cf.file_id = cfr.file_id
+        WHERE w.is_migrated = '1' 
         """
     ),
     (
         "Upload supporting document of approvals (Exploration/Appraisal/Development Plan)", 201,
         """
-        SELECT faao."WEL_LOC_CHA_DEEP_ID", cf.FILE_NAME, fwlcd.blockcategory , fwlcd.blockname , fwlcd.created_on , cf.FILE_ID
-        FROM dgh_staging.form_wel_loc_cha_de_data faao
-        JOIN dgh_staging.CMS_MASTER_FILEREF cmf ON faao."WELL_TYPE_FILE" = cmf.fileref
-        JOIN dgh_staging.CMS_FILE_REF cfr ON cfr.REF_ID = cmf.fileref
-        JOIN dgh_staging.CMS_FILES cf ON cf.FILE_ID = cfr.FILE_ID
-        JOIN dgh_staging.form_wel_loc_cha_deep fwlcd ON fwlcd.refid = faao."WEL_LOC_CHA_DEEP_ID"
-        WHERE cmf.ACTIVE = '1' AND fwlcd.status = '1' AND faao."ACTIVE" = '17'
+        select
+        	   a."WEL_LOC_CHA_DEEP_ID",
+               cf.FILE_NAME,
+               h.block_category,
+               h.block_name,
+               h.creation_date,
+               cf.file_id
+        FROM dgh_staging.form_wel_loc_cha_de_data a
+        JOIN operator_contracts_agreements.t_well_location_header h 
+            ON h.well_location_application_number = a."WEL_LOC_CHA_DEEP_ID"
+        JOIN operator_contracts_agreements.t_well_location_well_details w 
+            ON w.well_name = a."WELL_NO" and  w.well_location_header_id = h.well_location_header_id
+        JOIN dgh_staging.cms_file_ref cfr 
+            ON cfr.ref_id = a."WELL_TYPE_FILE" 
+        JOIN dgh_staging.cms_files cf 
+            ON cf.file_id = cfr.file_id
+        WHERE w.is_migrated = '1' 
         """
     )
 ]
