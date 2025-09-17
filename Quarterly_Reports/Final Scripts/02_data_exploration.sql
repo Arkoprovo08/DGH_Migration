@@ -39,7 +39,26 @@ WITH mapped AS (
     JOIN user_profile.m_user_master u 
         ON u.is_migrated = 1 AND u.migrated_user_id = a.created_by
     WHERE a.status = 1
-      AND a.refid = 'QPR-20221027041057' and a.type = 'EXPLORATION' and a.label <> 'Exploration_Activities'
+      AND a.refid = 'QPR-20221027041057' and a.type = 'EXPLORATION' and a.label in 
+      (
+        '2D_LKM_Acquired',
+		'2D_LKM_Processed',
+		'2D_LKM_Interpreted',
+		'3D_Sqkm_Acquired',
+		'3D_Sqkm_Processed',
+		'3D_Sqkm_Interpreted',
+		'High_Resolution_3D_Survey_Acquired',
+		'High_Resolution_3D_Survey_Processed',
+		'High_Resolution_3D_Survey_Interpreted',
+		'2D_Reprocessed_Processed',
+		'2D_Reprocessed_Interpreted',
+		'Exploration_Wells_To_Be_Drilled',
+		'Appraisal_Wells_To_Be_Drilled',
+		'Well_Testing_DST_Pressure_Transient',
+		'Fluid_Sampling_Analysis_PVT_Analysis',
+		'Core_Analysis_Lab_Studies',
+		'Reservoir_Modelling_Studies'
+      )
 )
 INSERT INTO upstream_data_management.t_quarterly_report_exploration_activities (
     quarterly_report_id,
